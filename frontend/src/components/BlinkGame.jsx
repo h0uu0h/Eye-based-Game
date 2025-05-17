@@ -15,9 +15,14 @@ const BlinkGame = () => {
     const [taskActive, setTaskActive] = useState(false);
 
     useEffect(() => {
-        const socket = io("http://localhost:5000");
+        const socket = io("http://localhost:5000", {
+            transports: ["websocket"], // 强制使用 WebSocket
+            reconnectionAttempts: 3,   // 减少重连尝试
+            autoConnect: true
+        });
 
         socket.on("blink_event", (data) => {
+            console.log("Received blink event:", data); // 👈 添加调试日志
             setBlinkCount(data.total);
 
             const canvas = canvasRef.current;

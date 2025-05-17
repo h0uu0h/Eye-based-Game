@@ -1,135 +1,152 @@
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, render_template
 import cv2
 import mediapipe as mp
 from math import sqrt
 from flask_cors import CORS
 from flask_socketio import SocketIO
+import eventlet
+import eventlet.green.threading as threading
+
+eventlet.monkey_patch()  # 👈 关键：必须放在最前面
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-socketio = SocketIO(app, cors_allowed_origins="*")
-
+# MediaPipe初始化
 mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
 mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(
+    static_image_mode=False,
+    max_num_faces=2,
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
 
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=4, min_detection_confidence=0.5, min_tracking_confidence=0.5)
-face_mesh = mp_face_mesh.FaceMesh(static_image_mode=False, max_num_faces=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
-# 眼部关键点索引（常用的EAR点）
+# 眼部关键点索引
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
 
-COUNTER = 0
-TOTAL_BLINKS = 0
-STREAMING = False
+class VideoStreamer:
+    def __init__(self):
+        self.frame = None
+        self.stop_event = threading.Event()
+        self.lock = threading.Lock()
+        self.blink_counter = 0
+        self.total_blinks = 0
+        self.cap = None
+        self.stream_greenlet = None
 
-def euclidean_distance(p1, p2):
-    # 3D 距离
-    x1, y1, z1 = p1
-    x2, y2, z2 = p2
-    return sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
+    def start_stream(self):
+        if self.stream_greenlet and not self.stream_greenlet.dead:
+            return
 
-def blink_ratio(landmarks, eye_points):
-    # 水平距离（眼角-眼角）
-    hor_distance = euclidean_distance(landmarks[eye_points[0]], landmarks[eye_points[3]])
+        self.stop_event.clear()
+        self.stream_greenlet = eventlet.spawn(self._capture_frames)  # 👈 使用Eventlet协程
 
-    # 上下眼皮距离
-    ver_distance1 = euclidean_distance(landmarks[eye_points[1]], landmarks[eye_points[5]])
-    ver_distance2 = euclidean_distance(landmarks[eye_points[2]], landmarks[eye_points[4]])
+    def stop_stream(self):
+        self.stop_event.set()
+        if self.stream_greenlet:
+            self.stream_greenlet.wait(timeout=2)  # 等待协程退出
+        if self.cap and self.cap.isOpened():
+            self.cap.release()
+        self.frame = None
 
-    ver_distance = (ver_distance1 + ver_distance2) / 2.0
+    def _capture_frames(self):
+        self.cap = cv2.VideoCapture(0)
+        while not self.stop_event.is_set():
+            success, frame = self.cap.read()
+            if not success:
+                break
 
-    # 归一化比值 (ver / hor)，与头部姿态无关
-    ratio = ver_distance / hor_distance if hor_distance != 0 else 0
-    return ratio
+            frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # 面部检测
+            results = face_mesh.process(rgb_frame)
+            if results.multi_face_landmarks:
+                for face_landmarks in results.multi_face_landmarks:
+                    # 绘制面部网格
+                    mp_drawing.draw_landmarks(
+                        image=frame,
+                        landmark_list=face_landmarks,
+                        connections=mp_face_mesh.FACEMESH_TESSELATION,
+                        landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,0), thickness=1),
+                        connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,0,255), thickness=1)
+                    )
 
-# 摄像头流函数
-def generate_frames():
-    global COUNTER, TOTAL_BLINKS, STREAMING
+                    # 眨眼检测逻辑
+                    landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
+                    left_ratio = self._blink_ratio(landmarks, LEFT_EYE)
+                    right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
+                    avg_ratio = (left_ratio + right_ratio) / 2
 
-    cap = cv2.VideoCapture(0)
-    while True:
-        if not STREAMING:
-            break
-        success, frame = cap.read()
-        if not success:
-            break
+                    if avg_ratio < 0.3:
+                        self.blink_counter += 1
+                        print(f'Left Eye Ratio: {left_ratio:.2f}, Right Eye Ratio: {right_ratio:.2f}, Avg Ratio: {avg_ratio:.2f}, Blink Counter: {self.blink_counter:.2f}')
+                    else:
+                        if self.blink_counter > 2:
+                            self.total_blinks += 1
+                            self.blink_counter = 0
+                            print("blink")
+                            # 使用协程安全的方式发送事件
+                            socketio.start_background_task(
+                                lambda: socketio.emit("blink_event", {"total": self.total_blinks})
+                            )
 
-        frame = cv2.flip(frame, 1)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # 更新帧数据
+            with self.lock:
+                _, buffer = cv2.imencode('.jpg', frame)
+                self.frame = buffer.tobytes()
 
-        # 手部检测（仅识别，不绘制）
-        hands.process(rgb_frame)
+            eventlet.sleep(0.02)  # 👈 保持协程让步
 
-        # 面部网格检测
-        face_mesh_results = face_mesh.process(rgb_frame)
-        if face_mesh_results.multi_face_landmarks:
-            for face_landmarks in face_mesh_results.multi_face_landmarks:
-                mp_drawing.draw_landmarks(
-                    frame,
-                    face_landmarks,
-                    mp_face_mesh.FACEMESH_TESSELATION,
-                    mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
-                    mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1, circle_radius=1)
-                )
-                # 获取归一化 (x, y, z) 坐标
-                landmarks = []
-                for lm in face_landmarks.landmark:
-                    landmarks.append((lm.x, lm.y, lm.z))
+    def _blink_ratio(self, landmarks, eye_points):
+        def euclidean_distance(p1, p2):
+            x1, y1, z1 = p1
+            x2, y2, z2 = p2
+            return sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
-                # 左右眼分别计算ratio
-                left_eye_ratio = blink_ratio(landmarks, LEFT_EYE)
-                right_eye_ratio = blink_ratio(landmarks, RIGHT_EYE)
-                avg_ratio = (left_eye_ratio + right_eye_ratio) / 2.0
+        hor_distance = euclidean_distance(landmarks[eye_points[0]], landmarks[eye_points[3]])
+        ver_distance1 = euclidean_distance(landmarks[eye_points[1]], landmarks[eye_points[5]])
+        ver_distance2 = euclidean_distance(landmarks[eye_points[2]], landmarks[eye_points[4]])
+        ver_distance = (ver_distance1 + ver_distance2) / 2.0
+        return ver_distance / hor_distance if hor_distance != 0 else 0
 
-                # 眨眼检测逻辑
-                print(f'Left Eye Ratio: {left_eye_ratio:.2f}, Right Eye Ratio: {right_eye_ratio:.2f}, Avg Ratio: {avg_ratio:.2f}')
-                if avg_ratio < 0.30:  # 归一化后，闭眼时比值变小（可根据实际调试）
-                    COUNTER += 1
-                else:
-                    if COUNTER > 2:  # 连续几帧闭眼算一次眨眼
-                        TOTAL_BLINKS += 1
-                        COUNTER = 0
-                        socketio.emit("blink_event", {"total": TOTAL_BLINKS})
-                # # 显示眨眼次数
-                # cv2.putText(frame, f'Total Blinks: {TOTAL_BLINKS}', (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    def generate(self):
+        while not self.stop_event.is_set():
+            with self.lock:
+                if self.frame is None:
+                    eventlet.sleep(0.1)
+                    continue
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + self.frame + b'\r\n')
+            eventlet.sleep(0.025)
 
-                # # 检测到眨眼时提示
-                # if COUNTER > 2:
-                #     print('blink')
-                #     cv2.putText(frame, 'Blink!', (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
+video_streamer = VideoStreamer()
 
-        # 编码帧并通过流发送
-        _, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
-    cap.release()
-
-# 摄像头流接口
 @app.route('/video_feed')
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(video_streamer.generate(),
+                   mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route("/start_stream", methods=["POST"])
 def start_stream():
-    global STREAMING
-    STREAMING = True
+    video_streamer.start_stream()
     return {"status": "started"}
 
 @app.route("/stop_stream", methods=["POST"])
 def stop_stream():
-    global STREAMING
-    STREAMING = False
+    video_streamer.stop_stream()
     return {"status": "stopped"}
 
-# React入口页面
 @app.route("/")
 def index():
     return render_template("index.html")
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    socketio.run(app, 
+                host="0.0.0.0", 
+                port=5000, 
+                debug=True,
+                use_reloader=False)  # 👈 关闭自动重载以避免线程冲突
