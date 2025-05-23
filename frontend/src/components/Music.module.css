@@ -1,0 +1,151 @@
+/* Navbar.module.css */
+
+/* 基础logo样式 - 注意使用更具体的类名避免全局污染 */
+
+/* 导航栏专用logo样式 */
+.navbarLogo {
+    height: 1.5em;
+    display: block;
+    will-change: filter;
+    transition: filter 300ms;
+}
+
+/* 悬停效果 */
+.navbarLogo:hover {
+    filter: drop-shadow(0 0 1em #EB5B56aa);
+}
+
+
+/* 旋转动画 */
+@keyframes logoSpin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* 减少运动偏好设置 */
+@media (prefers-reduced-motion: no-preference) {
+    .navbarLogo {
+        animation: logoSpin infinite 20s linear;
+    }
+
+    /* 第二个链接的logo */
+    .secondLink .navbarLogo {
+        animation: logoSpin infinite 20s linear;
+    }
+}
+
+.volumeButton {
+    width: 2.8em;
+    height: 2.8em;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.volumeButton:hover {
+    filter: drop-shadow(0 0 0.2em #ffffffaa);
+}
+
+.playButton {
+    width: 4.2em;
+    height: 4.2em;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.playButton:hover {
+    filter: drop-shadow(0 0 0.2em #ffffffaa);
+}
+
+
+.iconButton {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 1px solid #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.iconButton:hover {
+    background: #000000;
+    border-color: #000000;
+}
+
+.iconButton:hover .icon {
+    filter: brightness(0) invert(1);
+}
+
+.icon {
+    width: 1em;
+    font-size: 20px;
+    transition: color 0.3s ease;
+}
+
+/* 基础轨道样式 */
+.volumeSlider {
+    -webkit-appearance: none;
+    /* 必须重置 */
+    width: 100%;
+    height: 4px;
+    /* 黑色轨道背景 */
+    border-radius: 2px;
+    outline: none;
+}
+
+/* 滑块thumb样式 (所有浏览器) */
+.volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    /* 触控友好尺寸 */
+    height: 16px;
+    background: #ffffff;
+    border-radius: 50%;
+    margin-top: -4px;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.volumeSlider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    /* border-radius: 50%; */
+    cursor: pointer;
+}
+
+/* 进度条填充色 */
+.volumeSlider::-webkit-slider-runnable-track {
+    border-radius: 2px;
+    height: 6px;
+    background: linear-gradient(to right, #fff 0%, #fff var(--progress), #555 var(--progress), #555 100%);
+}
+
+.volumeSlider::-moz-range-progress {
+    background: #fff;
+    height: 6px;
+    border-radius: 2px;
+}
+
+/* 交互状态 */
+.volumeSlider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+}
+
+.volumeSlider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+}

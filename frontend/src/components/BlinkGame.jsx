@@ -9,18 +9,32 @@ const BlinkGame = () => {
 
     const taskSucceededRef = useRef(false);
     const [missCount, setMissCount] = useState(0);
+    const [streamKey, setStreamKey] = useState(Date.now());
 
     const [blinkCount, setBlinkCount] = useState(0);
     const [score, setScore] = useState(0);
     const [taskActive, setTaskActive] = useState(false);
+    // 阈值计算
+    const [calibrated, setCalibrated] = useState(false);
+    const [threshold, setThreshold] = useState(null);
 
+    const handleVideoLoad = () => {
+        console.log("Video loaded, starting calibration...");
+        fetch("http://localhost:5000/start_calibration", {
+            method: "POST",
+        });
+    };
     useEffect(() => {
         const socket = io("http://localhost:5000", {
             transports: ["websocket"], // 强制使用 WebSocket
-            reconnectionAttempts: 3,   // 减少重连尝试
-            autoConnect: true
+            reconnectionAttempts: 3, // 减少重连尝试
+            autoConnect: true,
         });
-
+        socket.on("calibrated", (data) => {
+            console.log("Calibrated with threshold:", data.threshold);
+            setThreshold(data.threshold.toFixed(3));
+            setCalibrated(true);
+        });
         socket.on("blink_event", (data) => {
             console.log("Received blink event:", data); // 👈 添加调试日志
             setBlinkCount(data.total);
@@ -90,13 +104,46 @@ const BlinkGame = () => {
         const initialDelay = 2000 + Math.random() * 3000;
         timer = setTimeout(triggerTask, initialDelay);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            setStreamKey(Date.now());
+        };
     }, []);
 
     return (
         <div style={{ position: "relative", width: "640px", height: "480px" }}>
+            {!calibrated && (
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "50%",
+                        left: "50%",
+                        transform: "translate(-50%, -50%)",
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        padding: "20px",
+                        color: "white",
+                        fontSize: "22px",
+                        borderRadius: "12px",
+                        fontWeight: "bold",
+                    }}>
+                    请睁眼、闭眼几次进行校准...
+                </div>
+            )}
+            {calibrated && (
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "10px",
+                        left: "10px",
+                        color: "lightgreen",
+                        fontSize: "16px",
+                    }}>
+                    校准完成，阈值：{threshold}
+                </div>
+            )}
             <img
-                src="http://localhost:5000/video_feed"
+                onLoad={handleVideoLoad}
+                src={`http://localhost:5000/video_feed?key=${streamKey}`}
                 alt="Video Stream"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />

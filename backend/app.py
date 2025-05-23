@@ -36,6 +36,14 @@ class VideoStreamer:
         self.total_blinks = 0
         self.cap = None
         self.stream_greenlet = None
+        # 阈值计算
+        self.ratios = []
+        self.calibrating = True
+        self.min_ratio = float("inf")
+        self.max_ratio = float("-inf")
+        self.threshold = 0.3
+        self.calibrated_notified = False  # 防止重复通知前端
+
 
     def start_stream(self):
         if self.stream_greenlet and not self.stream_greenlet.dead:
@@ -81,18 +89,31 @@ class VideoStreamer:
                     right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
                     avg_ratio = (left_ratio + right_ratio) / 2
 
-                    if avg_ratio < 0.3:
-                        self.blink_counter += 1
-                        print(f'Left Eye Ratio: {left_ratio:.2f}, Right Eye Ratio: {right_ratio:.2f}, Avg Ratio: {avg_ratio:.2f}, Blink Counter: {self.blink_counter:.2f}')
-                    else:
-                        if self.blink_counter > 2:
-                            self.total_blinks += 1
-                            self.blink_counter = 0
-                            print("blink")
-                            # 使用协程安全的方式发送事件
+                    if self.calibrating:
+                        self.min_ratio = min(self.min_ratio, avg_ratio)
+                        self.max_ratio = max(self.max_ratio, avg_ratio)
+                        self.ratios.append(avg_ratio)
+                        print(f"Calibrating... Avg Ratio: {avg_ratio:.3f}")
+
+                        if len(self.ratios) >= 30:  # 收集足够样本
+                            self.threshold = self.min_ratio + (self.max_ratio - self.min_ratio) * 0.4
+                            self.calibrating = False
+                            print(self.ratios)
+                            print(f"[CALIBRATED] Min: {self.min_ratio:.3f}, Max: {self.max_ratio:.3f}, Threshold: {self.threshold:.3f}")
                             socketio.start_background_task(
-                                lambda: socketio.emit("blink_event", {"total": self.total_blinks})
+                                lambda: socketio.emit("calibrated", {"threshold": self.threshold})
                             )
+                    else:
+                        if avg_ratio < self.threshold:
+                            self.blink_counter += 1
+                        else:
+                            if self.blink_counter > 2:
+                                self.total_blinks += 1
+                                self.blink_counter = 0
+                                print("blink")
+                                socketio.start_background_task(
+                                    lambda: socketio.emit("blink_event", {"total": self.total_blinks})
+                                )
 
             # 更新帧数据
             with self.lock:
@@ -139,6 +160,15 @@ def start_stream():
 def stop_stream():
     video_streamer.stop_stream()
     return {"status": "stopped"}
+
+@app.route("/start_calibration", methods=["POST"])
+def start_calibration():
+    video_streamer.calibrating = True
+    video_streamer.ratios.clear()
+    video_streamer.min_ratio = float("inf")
+    video_streamer.max_ratio = float("-inf")
+    video_streamer.calibrated_notified = False
+    return {"status": "calibrating"}
 
 @app.route("/")
 def index():
