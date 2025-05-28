@@ -36,6 +36,7 @@ class VideoStreamer:
         self.total_blinks = 0
         self.cap = None
         self.stream_greenlet = None
+        self.current_eye_state = "open"
         # 阈值计算
         self.ratios = []
         self.calibrating = True
@@ -104,15 +105,29 @@ class VideoStreamer:
                                 lambda: socketio.emit("calibrated", {"threshold": self.threshold})
                             )
                     else:
+                        # 新增 eye_state 状态追踪
+
                         if avg_ratio < self.threshold:
+                            if self.current_eye_state != "closed":
+                                print("close")
+                                self.current_eye_state = "closed"
+                                socketio.start_background_task(
+                                    lambda: socketio.emit("eye_state", {"status": "closed"})
+                                )
                             self.blink_counter += 1
                         else:
                             if self.blink_counter > 2:
                                 self.total_blinks += 1
-                                self.blink_counter = 0
                                 print("blink")
                                 socketio.start_background_task(
                                     lambda: socketio.emit("blink_event", {"total": self.total_blinks})
+                                )
+                            self.blink_counter = 0
+                            if self.current_eye_state != "open":
+                                print("open")
+                                self.current_eye_state = "open"
+                                socketio.start_background_task(
+                                    lambda: socketio.emit("eye_state", {"status": "open"})
                                 )
 
             # 更新帧数据
