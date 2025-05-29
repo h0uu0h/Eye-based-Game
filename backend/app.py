@@ -185,10 +185,12 @@ def start_calibration():
     video_streamer.calibrated_notified = False
     return {"status": "calibrating"}
 
+# @app.route("/")
+# def index():
+#     return render_template("index.html")
 @app.route("/")
 def index():
-    return render_template("index.html")
-
+    return {"status": "backend is live"}
 if __name__ == "__main__":
     socketio.run(app, 
                 host="0.0.0.0", 

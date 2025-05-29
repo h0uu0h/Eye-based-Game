@@ -7,6 +7,7 @@ import EarmWaveform from "./EarmWaveform";
 import { io } from "socket.io-client";
 
 const BlinkGame = () => {
+    const BASE_URL = import.meta.env.VITE_SOCKET_URL;
     const [mode, setMode] = useState("classic");
     const [threshold, setThreshold] = useState(null);
     const [calibrated, setCalibrated] = useState(false);
@@ -20,7 +21,7 @@ const BlinkGame = () => {
             setCalibrated(true);
         });
 
-        fetch("http://localhost:5000/start_calibration", {
+        fetch(`${BASE_URL}/start_calibration`, {
             method: "POST",
         }).then(() => console.log("启动校准请求已发送"));
 
@@ -50,7 +51,7 @@ const BlinkGame = () => {
                     height: "480px",
                 }}>
                 <img
-                    src={`http://localhost:5000/video_feed?key=${Date.now()}`}
+                    src={`${BASE_URL}/video_feed?key=${Date.now()}`}
                     alt="Video Stream"
                     style={{
                         width: "100%",
