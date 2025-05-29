@@ -28,7 +28,7 @@ function App() {
         <div
             className="app-container"
             style={{ textAlign: "center", paddingTop: "20px" }}>
-            <h1>Blink Game</h1>
+            {/* <h1>Blink Game</h1> */}
             <button
                 onClick={handleToggleGame}
                 style={{

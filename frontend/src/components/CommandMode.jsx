@@ -2,10 +2,30 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
 const COMMANDS = [
-    { text: "眨一次", type: "blink", count: 1, audio: "/sounds/cmd_blink1.mp3" },
-    { text: "眨两次", type: "blink", count: 2, audio: "/sounds/cmd_blink2.mp3" },
-    { text: "闭眼", type: "state", target: "closed", audio: "/sounds/cmd_close.mp3" },
-    { text: "睁眼", type: "state", target: "open", audio: "/sounds/cmd_open.mp3" },
+    {
+        text: "眨一次",
+        type: "blink",
+        count: 1,
+        audio: "/sounds/cmd_blink1.mp3",
+    },
+    {
+        text: "眨两次",
+        type: "blink",
+        count: 2,
+        audio: "/sounds/cmd_blink2.mp3",
+    },
+    {
+        text: "闭眼",
+        type: "state",
+        target: "closed",
+        audio: "/sounds/cmd_close.mp3",
+    },
+    {
+        text: "睁眼",
+        type: "state",
+        target: "open",
+        audio: "/sounds/cmd_open.mp3",
+    },
 ];
 
 const CommandMode = () => {
@@ -26,7 +46,9 @@ const CommandMode = () => {
         socket.on("blink_event", () => {
             const now = Date.now();
             // 保留最近10秒内的眨眼记录
-            blinkTimestamps.current = blinkTimestamps.current.filter(t => now - t <= 10000);
+            blinkTimestamps.current = blinkTimestamps.current.filter(
+                (t) => now - t <= 10000
+            );
             blinkTimestamps.current.push(now);
             console.log("收到 blink_event @", now);
         });
@@ -35,7 +57,9 @@ const CommandMode = () => {
             const now = Date.now();
             setEyeState(status);
             // 保留最近30秒内的状态记录
-            stateTimestamps.current = stateTimestamps.current.filter(s => now - s.time <= 30000);
+            stateTimestamps.current = stateTimestamps.current.filter(
+                (s) => now - s.time <= 30000
+            );
             stateTimestamps.current.push({ state: status, time: now });
             console.log("眼睛状态:", status, now);
         });
@@ -57,7 +81,10 @@ const CommandMode = () => {
                 return true;
             });
 
-            const command = filteredCommands[Math.floor(Math.random() * filteredCommands.length)];
+            const command =
+                filteredCommands[
+                    Math.floor(Math.random() * filteredCommands.length)
+                ];
             setCurrentCommand(command);
             console.log("新的指令:", command);
 
@@ -70,11 +97,17 @@ const CommandMode = () => {
 
             if (commandAudioRef.current) {
                 commandAudioRef.current.src = command.audio;
-                commandAudioRef.current.play().catch(e => console.error("音频播放失败:", e));
+                commandAudioRef.current
+                    .play()
+                    .catch((e) => console.error("音频播放失败:", e));
             }
 
             const startTime = Date.now();
             const startState = eyeState; // 记录初始状态
+            const initialState = {
+                state: startState,
+                time: startTime,
+            };
 
             setTimeout(() => {
                 let success = false;
@@ -84,13 +117,16 @@ const CommandMode = () => {
                     const recentBlinks = blinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
                     );
-                    success = recentBlinks.length === command.count; // 保持严格等于
+                    success = recentBlinks.length >= command.count;
                     console.log("任务期间眨眼次数:", recentBlinks.length);
                 } else if (command.type === "state") {
                     // 获取时间段内的所有状态事件并按时间排序
-                    const events = stateTimestamps.current
-                        .filter(s => s.time >= startTime && s.time <= now)
-                        .sort((a, b) => a.time - b.time);
+                    const events = [
+                        initialState,
+                        ...stateTimestamps.current
+                            .filter((s) => s.time >= startTime && s.time <= now)
+                            .sort((a, b) => a.time - b.time),
+                    ];
 
                     let duration = 0;
                     let currentState = startState;
@@ -111,22 +147,34 @@ const CommandMode = () => {
                     }
 
                     success = duration >= 1000; // 至少1秒
-                    console.log("任务期间", command.target, "累计时长:", duration);
+                    console.log(
+                        "任务期间",
+                        command.target,
+                        "累计时长:",
+                        duration
+                    );
                 }
 
                 // 显示结果
                 if (!success) {
-                    missAudioRef.current?.play().catch(e => console.error("Miss音频失败:", e));
+                    missAudioRef.current
+                        ?.play()
+                        .catch((e) => console.error("Miss音频失败:", e));
                     ctx.fillStyle = "orange";
                     ctx.fillText("Miss!", 50, 100);
                 } else {
-                    successAudioRef.current?.play().catch(e => console.error("Success音频失败:", e));
+                    successAudioRef.current
+                        ?.play()
+                        .catch((e) => console.error("Success音频失败:", e));
                     ctx.fillStyle = "lightgreen";
                     ctx.fillText("Success!", 50, 100);
                 }
 
                 // 1秒后清除结果
-                setTimeout(() => ctx.clearRect(0, 0, canvas.width, canvas.height), 1000);
+                setTimeout(
+                    () => ctx.clearRect(0, 0, canvas.width, canvas.height),
+                    1000
+                );
 
                 // 设置下一个指令的延迟
                 const nextDelay = 4000 + Math.random() * 3000;
@@ -160,7 +208,11 @@ const CommandMode = () => {
             />
             <audio ref={commandAudioRef} preload="auto" />
             <audio ref={missAudioRef} src="/sounds/miss.wav" preload="auto" />
-            <audio ref={successAudioRef} src="/sounds/blink.wav" preload="auto" />
+            <audio
+                ref={successAudioRef}
+                src="/sounds/blink.wav"
+                preload="auto"
+            />
         </>
     );
 };
