@@ -95,7 +95,11 @@ detector = BlinkDetector()
 @socketio.on("frame")
 def handle_frame(data):
     try:
-        img = Image.open(BytesIO(data))
+        if hasattr(data, "read"):  # 👈 检查Blob
+            image_data = data.read()
+        else:
+            image_data = data
+        img = Image.open(BytesIO(image_data))
         frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
         detector.process_frame(frame)
     except Exception as e:
