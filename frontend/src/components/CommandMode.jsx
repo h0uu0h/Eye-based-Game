@@ -12,25 +12,25 @@ const COMMANDS = [
         text: "眨一次",
         type: "blink",
         count: 1,
-        audio: {blink1Sound},
+        audio: blink1Sound,
     },
     {
         text: "眨两次",
         type: "blink",
         count: 2,
-        audio: {blink2Sound},
+        audio: blink2Sound,
     },
     {
         text: "闭眼",
         type: "state",
         target: "closed",
-        audio: {closeSound},
+        audio: closeSound,
     },
     {
         text: "睁眼",
         type: "state",
         target: "open",
-        audio: {openSound},
+        audio: openSound,
     },
 ];
 
