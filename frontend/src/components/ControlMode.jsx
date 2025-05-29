@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import musicSound from "/sounds/陶喆-天天.mp3";
 
 const ControlMode = () => {
     const canvasRef = useRef(null);
@@ -42,7 +43,7 @@ const ControlMode = () => {
                 height="480"
                 style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
             />
-            <audio ref={musicRef} src="/sounds/陶喆-天天.mp3" preload="auto" loop />
+            <audio ref={musicRef} src={musicSound} preload="auto" loop />
         </>
     );
 };

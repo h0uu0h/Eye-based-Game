@@ -1,30 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import blinkSound from "/sounds/blink.wav";
+import missSound from "/sounds/miss.wav";
+import blink1Sound from "/sounds/cmd_blink1.mp3";
+import blink2Sound from "/sounds/cmd_blink2.mp3";
+import closeSound from"/sounds/cmd_close.mp3";
+import openSound from "/sounds/cmd_open.mp3";
 
 const COMMANDS = [
     {
         text: "眨一次",
         type: "blink",
         count: 1,
-        audio: "/sounds/cmd_blink1.mp3",
+        audio: {blink1Sound},
     },
     {
         text: "眨两次",
         type: "blink",
         count: 2,
-        audio: "/sounds/cmd_blink2.mp3",
+        audio: {blink2Sound},
     },
     {
         text: "闭眼",
         type: "state",
         target: "closed",
-        audio: "/sounds/cmd_close.mp3",
+        audio: {closeSound},
     },
     {
         text: "睁眼",
         type: "state",
         target: "open",
-        audio: "/sounds/cmd_open.mp3",
+        audio: {openSound},
     },
 ];
 
@@ -207,10 +213,10 @@ const CommandMode = () => {
                 }}
             />
             <audio ref={commandAudioRef} preload="auto" />
-            <audio ref={missAudioRef} src="/sounds/miss.wav" preload="auto" />
+            <audio ref={missAudioRef} src={missSound} preload="auto" />
             <audio
                 ref={successAudioRef}
-                src="/sounds/blink.wav"
+                src={blinkSound}
                 preload="auto"
             />
         </>

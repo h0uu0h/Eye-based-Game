@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import blinkSound from "/sounds/blink.wav";
+import startSound from "/sounds/start.wav";
+import missSound from "/sounds/miss.wav";
 
 const ClassicMode = () => {
     const canvasRef = useRef(null);
@@ -93,10 +96,10 @@ const ClassicMode = () => {
                     left: 0,
                     pointerEvents: "none",
                 }}
-            />
-            <audio ref={audioRef} src="/sounds/blink.wav" preload="auto" />
-            <audio ref={startAudioRef} src="/sounds/start.wav" preload="auto" />
-            <audio ref={missAudioRef} src="/sounds/miss.wav" preload="auto" />
+            />s
+            <audio ref={audioRef} src={blinkSound} preload="auto" />
+            <audio ref={startAudioRef} src={startSound} preload="auto" />
+            <audio ref={missAudioRef} src={missSound} preload="auto" />
             <div style={{
                 position: "absolute",
                 bottom: "10px",

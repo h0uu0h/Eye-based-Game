@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import musicSound from "/sounds/陶喆-天天.mp3";
 
 const MusicMode = () => {
     const canvasRef = useRef(null);
@@ -127,7 +128,7 @@ const MusicMode = () => {
             />
             <audio
                 ref={musicRef}
-                src="/sounds/陶喆-天天.mp3"
+                src={musicSound}
                 preload="auto"
                 loop
                 onError={(e) => console.error("音频加载失败:", e)}
