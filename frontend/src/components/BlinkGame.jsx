@@ -11,9 +11,9 @@ const BlinkGame = () => {
     const [mode, setMode] = useState("classic");
     const [threshold, setThreshold] = useState(null);
     const [calibrated, setCalibrated] = useState(false);
+    const socket = io(import.meta.env.VITE_SOCKET_URL);
 
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_SOCKET_URL);
 
         socket.on("calibrated", (data) => {
             console.log("已校准，阈值为:", data.threshold);
