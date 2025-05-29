@@ -14,7 +14,7 @@ const ClassicMode = () => {
     const [taskActive, setTaskActive] = useState(false);
 
     useEffect(() => {
-        const socket = io("http://localhost:5000", {
+        const socket = io(import.meta.env.VITE_SOCKET_URL, {
             transports: ["websocket"],
             reconnectionAttempts: 3,
             autoConnect: true,

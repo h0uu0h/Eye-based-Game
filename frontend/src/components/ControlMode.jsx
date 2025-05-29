@@ -7,7 +7,7 @@ const ControlMode = () => {
     const [eyeState, setEyeState] = useState("open");
 
     useEffect(() => {
-        const socket = io("http://localhost:5000");
+        const socket = io(import.meta.env.VITE_SOCKET_URL);
 
         socket.on("eye_state", ({ status }) => {
             setEyeState(status);
