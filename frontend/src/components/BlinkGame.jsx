@@ -1,120 +1,110 @@
-import { useState, useEffect } from "react";
-import ClassicMode from "./ClassicMode";
-import CommandMode from "./CommandMode";
-import MusicMode from "./MusicMode";
-import ControlMode from "./ControlMode";
-// import EarmWaveform from "./EarmWaveform";
+import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 
-const BlinkGame = () => {
-    const BASE_URL = import.meta.env.VITE_SOCKET_URL;
-    const [mode, setMode] = useState("classic");
-    const [threshold, setThreshold] = useState(null);
-    const [calibrated, setCalibrated] = useState(false);
-    const socket = io(import.meta.env.VITE_SOCKET_URL);
+const socket = io("https://eyeye.onrender.com");
 
-    useEffect(() => {
+export default function BlinkGame() {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [blinkCount, setBlinkCount] = useState(0);
+  const [eyeState, setEyeState] = useState("open");
+  const [calibrated, setCalibrated] = useState(false);
 
-        socket.on("calibrated", (data) => {
-            console.log("已校准，阈值为:", data.threshold);
-            setThreshold(data.threshold.toFixed(3));
-            setCalibrated(true);
+  // 连接事件
+  useEffect(() => {
+    socket.on("blink_event", (data) => {
+      setBlinkCount(data.total);
+    });
+
+    socket.on("eye_state", (data) => {
+      setEyeState(data.status);
+    });
+
+    socket.on("calibrated", () => {
+      setCalibrated(true);
+    });
+
+    return () => {
+      socket.off("blink_event");
+      socket.off("eye_state");
+      socket.off("calibrated");
+    };
+  }, []);
+
+  // 摄像头采集并传图像帧
+  useEffect(() => {
+    const initCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
         });
-
-        fetch(`${BASE_URL}/start_calibration`, {
-            method: "POST",
-        }).then(() => console.log("启动校准请求已发送"));
-
-        return () => socket.disconnect();
-    }, [BASE_URL]);
-
-    const renderModeComponent = () => {
-        switch (mode) {
-            case "command":
-                return <CommandMode />;
-            case "music":
-                return <MusicMode />;
-            case "control":
-                return <ControlMode />;
-            case "classic":
-            default:
-                return <ClassicMode />;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
         }
+
+        const sendFrame = () => {
+          if (
+            videoRef.current &&
+            canvasRef.current &&
+            calibrated // 只在校准后发送
+          ) {
+            const ctx = canvasRef.current.getContext("2d");
+            ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+            canvasRef.current.toBlob((blob) => {
+              if (blob) {
+                socket.emit("frame", blob);
+              }
+            }, "image/jpeg", 0.6);
+          }
+        };
+
+        const intervalId = setInterval(sendFrame, 100); // 每秒10帧
+
+        return () => clearInterval(intervalId);
+      } catch (err) {
+        console.error("无法访问摄像头:", err);
+      }
     };
 
-    return (
-        <div style={{ position: "relative", width: "640px" }}>
-            <div
-                style={{
-                    position: "relative",
-                    width: "640px",
-                    height: "480px",
-                }}>
-                <img
-                    src={`${BASE_URL}/video_feed?key=${Date.now()}`}
-                    alt="Video Stream"
-                    style={{
-                        width: "100%",
-                        height: "100%",
-                        objectFit: "cover",
-                    }}
-                    onLoad={() => console.log("视频流加载完成")}
-                />
-                {!calibrated && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: "50%",
-                            left: "50%",
-                            transform: "translate(-50%, -50%)",
-                            backgroundColor: "rgba(0,0,0,0.7)",
-                            padding: "20px",
-                            color: "white",
-                            fontSize: "22px",
-                            borderRadius: "12px",
-                            fontWeight: "bold",
-                            zIndex: 20,
-                        }}>
-                        请睁眼、闭眼几次进行校准...
-                    </div>
-                )}
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "10px",
-                        left: "10px",
-                        zIndex: 10,
-                    }}>
-                    <select
-                        value={mode}
-                        onChange={(e) => setMode(e.target.value)}
-                        style={{ fontSize: "16px", padding: "4px" }}>
-                        <option value="classic">经典模式</option>
-                        <option value="command">命令模式</option>
-                        <option value="music">音乐模式</option>
-                        <option value="control">控制模式</option>
-                    </select>
-                </div>
-                {threshold && calibrated && (
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: "10px",
-                            right: "10px",
-                            zIndex: 10,
-                            color: "lightgreen",
-                            fontWeight: "bold",
-                        }}>
-                        阈值: {threshold}
-                    </div>
-                )}
-                {renderModeComponent()}
-            </div>
-            {/* <div style={{ marginTop: "20px" }}>
-                <EarmWaveform />
-            </div> */}
-        </div>
-    );
-};
+    initCamera();
+  }, [calibrated]);
 
-export default BlinkGame;
+  // 手动触发校准
+  const startCalibration = async () => {
+    try {
+      const res = await fetch("https://eyeye.onrender.com/start_calibration", {
+        method: "POST",
+      });
+      const result = await res.json();
+      if (result.status === "calibrating") {
+        setCalibrated(false);
+      }
+    } catch (err) {
+      console.error("启动校准失败:", err);
+    }
+  };
+
+  return (
+    <div>
+      <h2>眨眼检测游戏</h2>
+      <p>状态：{eyeState}</p>
+      <p>总眨眼次数：{blinkCount}</p>
+      <button onClick={startCalibration}>开始校准</button>
+
+      <video
+        ref={videoRef}
+        width="320"
+        height="240"
+        style={{ display: "none" }}
+      />
+      <canvas
+        ref={canvasRef}
+        width="320"
+        height="240"
+        style={{ display: "none" }}
+      />
+    </div>
+  );
+}

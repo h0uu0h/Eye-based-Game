@@ -1,199 +1,121 @@
-from flask import Flask, Response, render_template
-import cv2
-import mediapipe as mp
-from math import sqrt
+from flask import Flask, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
 import eventlet
-import eventlet.green.threading as threading
+import cv2
+import numpy as np
+from io import BytesIO
+from PIL import Image
+import base64
+from math import sqrt
+import mediapipe as mp
 
-eventlet.monkey_patch()  # 👈 关键：必须放在最前面
+eventlet.monkey_patch()
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
+app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 # MediaPipe初始化
 mp_drawing = mp.solutions.drawing_utils
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     static_image_mode=False,
-    max_num_faces=2,
+    max_num_faces=1,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5
 )
 
-# 眼部关键点索引
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
 
-class VideoStreamer:
-    def __init__(self):
-        self.frame = None
-        self.stop_event = threading.Event()
-        self.lock = threading.Lock()
-        self.blink_counter = 0
-        self.total_blinks = 0
-        self.cap = None
-        self.stream_greenlet = None
-        self.current_eye_state = "open"
-        # 阈值计算
-        self.ratios = []
-        self.calibrating = True
-        self.min_ratio = float("inf")
-        self.max_ratio = float("-inf")
-        self.threshold = 0.3
-        self.calibrated_notified = False  # 防止重复通知前端
+# 全局状态
+ratios = []
+calibrating = True
+min_ratio = float("inf")
+max_ratio = float("-inf")
+threshold = 0.3
+blink_counter = 0
+total_blinks = 0
+current_eye_state = "open"
 
+def blink_ratio(landmarks, eye_points):
+    def dist(p1, p2):
+        x1, y1, z1 = p1
+        x2, y2, z2 = p2
+        return sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
-    def start_stream(self):
-        if self.stream_greenlet and not self.stream_greenlet.dead:
-            return
+    hor = dist(landmarks[eye_points[0]], landmarks[eye_points[3]])
+    ver1 = dist(landmarks[eye_points[1]], landmarks[eye_points[5]])
+    ver2 = dist(landmarks[eye_points[2]], landmarks[eye_points[4]])
+    return (ver1 + ver2) / 2.0 / hor if hor != 0 else 0
 
-        self.stop_event.clear()
-        self.stream_greenlet = eventlet.spawn(self._capture_frames)  # 👈 使用Eventlet协程
+@socketio.on("frame")
+def handle_frame(blob):
+    global ratios, calibrating, min_ratio, max_ratio
+    global threshold, blink_counter, total_blinks, current_eye_state
 
-    def stop_stream(self):
-        self.stop_event.set()
-        if self.stream_greenlet:
-            self.stream_greenlet.wait(timeout=2)  # 等待协程退出
-        if self.cap and self.cap.isOpened():
-            self.cap.release()
-        self.frame = None
+    try:
+        img = Image.open(BytesIO(blob))
+        frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    def _capture_frames(self):
-        self.cap = cv2.VideoCapture(0)
-        while not self.stop_event.is_set():
-            success, frame = self.cap.read()
-            if not success:
-                break
+        results = face_mesh.process(rgb_frame)
+        if results.multi_face_landmarks:
+            for face_landmarks in results.multi_face_landmarks:
+                landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
+                l_ratio = blink_ratio(landmarks, LEFT_EYE)
+                r_ratio = blink_ratio(landmarks, RIGHT_EYE)
+                avg_ratio = (l_ratio + r_ratio) / 2
 
-            frame = cv2.flip(frame, 1)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # 面部检测
-            results = face_mesh.process(rgb_frame)
-            if results.multi_face_landmarks:
-                for face_landmarks in results.multi_face_landmarks:
-                    # 绘制面部网格
-                    mp_drawing.draw_landmarks(
-                        image=frame,
-                        landmark_list=face_landmarks,
-                        connections=mp_face_mesh.FACEMESH_TESSELATION,
-                        landmark_drawing_spec=mp_drawing.DrawingSpec(color=(0,255,0), thickness=1),
-                        connection_drawing_spec=mp_drawing.DrawingSpec(color=(0,0,255), thickness=1)
-                    )
+                if calibrating:
+                    min_ratio = min(min_ratio, avg_ratio)
+                    max_ratio = max(max_ratio, avg_ratio)
+                    ratios.append(avg_ratio)
 
-                    # 眨眼检测逻辑
-                    landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
-                    left_ratio = self._blink_ratio(landmarks, LEFT_EYE)
-                    right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
-                    avg_ratio = (left_ratio + right_ratio) / 2
-
-                    if self.calibrating:
-                        self.min_ratio = min(self.min_ratio, avg_ratio)
-                        self.max_ratio = max(self.max_ratio, avg_ratio)
-                        self.ratios.append(avg_ratio)
-                        print(f"Calibrating... Avg Ratio: {avg_ratio:.3f}")
-
-                        if len(self.ratios) >= 30:  # 收集足够样本
-                            self.threshold = self.min_ratio + (self.max_ratio - self.min_ratio) * 0.4
-                            self.calibrating = False
-                            print(self.ratios)
-                            print(f"[CALIBRATED] Min: {self.min_ratio:.3f}, Max: {self.max_ratio:.3f}, Threshold: {self.threshold:.3f}")
+                    if len(ratios) >= 30:
+                        threshold = min_ratio + (max_ratio - min_ratio) * 0.4
+                        calibrating = False
+                        print(f"[CALIBRATED] min={min_ratio:.3f}, max={max_ratio:.3f}, threshold={threshold:.3f}")
+                        socketio.start_background_task(
+                            lambda: socketio.emit("calibrated", {"threshold": threshold})
+                        )
+                else:
+                    if avg_ratio < threshold:
+                        if current_eye_state != "closed":
+                            current_eye_state = "closed"
                             socketio.start_background_task(
-                                lambda: socketio.emit("calibrated", {"threshold": self.threshold})
+                                lambda: socketio.emit("eye_state", {"status": "closed"})
                             )
+                        blink_counter += 1
                     else:
-                        # 新增 eye_state 状态追踪
-
-                        if avg_ratio < self.threshold:
-                            if self.current_eye_state != "closed":
-                                print("close")
-                                self.current_eye_state = "closed"
-                                socketio.start_background_task(
-                                    lambda: socketio.emit("eye_state", {"status": "closed"})
-                                )
-                            self.blink_counter += 1
-                        else:
-                            if self.blink_counter > 2:
-                                self.total_blinks += 1
-                                print("blink")
-                                socketio.start_background_task(
-                                    lambda: socketio.emit("blink_event", {"total": self.total_blinks})
-                                )
-                            self.blink_counter = 0
-                            if self.current_eye_state != "open":
-                                print("open")
-                                self.current_eye_state = "open"
-                                socketio.start_background_task(
-                                    lambda: socketio.emit("eye_state", {"status": "open"})
-                                )
-
-            # 更新帧数据
-            with self.lock:
-                _, buffer = cv2.imencode('.jpg', frame)
-                self.frame = buffer.tobytes()
-
-            eventlet.sleep(0.02)  # 👈 保持协程让步
-
-    def _blink_ratio(self, landmarks, eye_points):
-        def euclidean_distance(p1, p2):
-            x1, y1, z1 = p1
-            x2, y2, z2 = p2
-            return sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
-
-        hor_distance = euclidean_distance(landmarks[eye_points[0]], landmarks[eye_points[3]])
-        ver_distance1 = euclidean_distance(landmarks[eye_points[1]], landmarks[eye_points[5]])
-        ver_distance2 = euclidean_distance(landmarks[eye_points[2]], landmarks[eye_points[4]])
-        ver_distance = (ver_distance1 + ver_distance2) / 2.0
-        return ver_distance / hor_distance if hor_distance != 0 else 0
-
-    def generate(self):
-        while not self.stop_event.is_set():
-            with self.lock:
-                if self.frame is None:
-                    eventlet.sleep(0.1)
-                    continue
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + self.frame + b'\r\n')
-            eventlet.sleep(0.025)
-
-video_streamer = VideoStreamer()
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(video_streamer.generate(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route("/start_stream", methods=["POST"])
-def start_stream():
-    video_streamer.start_stream()
-    return {"status": "started"}
-
-@app.route("/stop_stream", methods=["POST"])
-def stop_stream():
-    video_streamer.stop_stream()
-    return {"status": "stopped"}
+                        if blink_counter > 2:
+                            total_blinks += 1
+                            print(f"[BLINK] Total: {total_blinks}")
+                            socketio.start_background_task(
+                                lambda: socketio.emit("blink_event", {"total": total_blinks})
+                            )
+                        blink_counter = 0
+                        if current_eye_state != "open":
+                            current_eye_state = "open"
+                            socketio.start_background_task(
+                                lambda: socketio.emit("eye_state", {"status": "open"})
+                            )
+    except Exception as e:
+        print(f"[ERROR] Failed to decode frame: {e}")
 
 @app.route("/start_calibration", methods=["POST"])
 def start_calibration():
-    video_streamer.calibrating = True
-    video_streamer.ratios.clear()
-    video_streamer.min_ratio = float("inf")
-    video_streamer.max_ratio = float("-inf")
-    video_streamer.calibrated_notified = False
+    global calibrating, ratios, min_ratio, max_ratio
+    calibrating = True
+    ratios.clear()
+    min_ratio = float("inf")
+    max_ratio = float("-inf")
     return {"status": "calibrating"}
 
-# @app.route("/")
-# def index():
-#     return render_template("index.html")
 @app.route("/")
 def index():
     return {"status": "backend is live"}
+
 if __name__ == "__main__":
-    socketio.run(app, 
-                host="0.0.0.0", 
-                port=5000, 
-                debug=True,
-                use_reloader=False)  # 👈 关闭自动重载以避免线程冲突
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, use_reloader=False)
