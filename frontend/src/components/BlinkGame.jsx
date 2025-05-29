@@ -3,7 +3,7 @@ import ClassicMode from "./ClassicMode";
 import CommandMode from "./CommandMode";
 import MusicMode from "./MusicMode";
 import ControlMode from "./ControlMode";
-import EarmWaveform from "./EarmWaveform";
+// import EarmWaveform from "./EarmWaveform";
 import { io } from "socket.io-client";
 
 const BlinkGame = () => {
@@ -26,7 +26,7 @@ const BlinkGame = () => {
         }).then(() => console.log("启动校准请求已发送"));
 
         return () => socket.disconnect();
-    }, []);
+    }, [BASE_URL]);
 
     const renderModeComponent = () => {
         switch (mode) {
@@ -110,9 +110,9 @@ const BlinkGame = () => {
                 )}
                 {renderModeComponent()}
             </div>
-            <div style={{ marginTop: "20px" }}>
+            {/* <div style={{ marginTop: "20px" }}>
                 <EarmWaveform />
-            </div>
+            </div> */}
         </div>
     );
 };
