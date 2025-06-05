@@ -60,7 +60,14 @@ class BlinkDetector:
             left_ratio = self._blink_ratio(landmarks, LEFT_EYE)
             right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
             avg_ratio = (left_ratio + right_ratio) / 2
-
+            # 提取左眼和右眼关键点
+            left_eye_points = [landmarks[i] for i in LEFT_EYE]
+            right_eye_points = [landmarks[i] for i in RIGHT_EYE]
+        
+            socketio.start_background_task(lambda: socketio.emit("eye_landmarks", {
+                "left_eye": left_eye_points,
+                "right_eye": right_eye_points
+            }))
             if self.calibrating:
                 self.min_ratio = min(self.min_ratio, avg_ratio)
                 self.max_ratio = max(self.max_ratio, avg_ratio)

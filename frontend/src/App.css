@@ -2,82 +2,9 @@
   max-width: 100%;
   /* 撑满浏览器宽度 */
   width: 100%;
+  height: 100%;
   margin: 0 auto;
   padding: 0;
   /* 移除内边距 */
   text-align: center;
-}
-
-.ant-layout {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.logo {
-  height: 8em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo.react {
-  height: 12em;
-}
-
-.logo.navbar-logo {
-  height: 0em;
-  padding: 2px;
-}
-
-.logo.navbar-logo:hover {
-  height: 3em;
-  filter: drop-shadow(0 0 2em #EB5B56aa);
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #EB5B56aa);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* @media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-} */
-@media (prefers-reduced-motion: no-preference) {
-  .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.site-layout-content {
-  background: #fff;
-  padding: 24px;
-  min-height: 280px;
-  width: 100%;
-  margin: 0;
-}
-
-.ant-layout-sider {
-  background: #fff;
-}
-
-.ant-layout-header,
-.ant-layout-footer {
-  background: #ffffff;
 }

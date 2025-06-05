@@ -1,34 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import "./App.css";
 import BlinkGame from "./components/BlinkGame";
+import BgImage from "/bg.png";
 
 function App() {
-    const [gameStarted, setGameStarted] = useState(false);
+    const [gameWake, setGameWake] = useState(false);
 
     const handleToggleGame = () => {
-        setGameStarted((prev) => !prev);
+        setGameWake((prev) => !prev);
     };
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            handleToggleGame(); // 2分钟后自动开始
+        }, 2 * 1000); // 2分钟
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <div
             className="app-container"
-            style={{ textAlign: "center", paddingTop: "20px" }}>
-            <button
-                onClick={handleToggleGame}
+            style={{ textAlign: "center" }}>
+            <img
+                src={BgImage}
+                alt="Default Camera"
+                onClick={() => window.location.reload()}
                 style={{
-                    padding: "10px 20px",
-                    fontSize: "18px",
-                    marginBottom: "20px",
+                    position: "absolute",
+                    height: "100%",
+                    width: "100%",
+                    left: "50%",
+                    top: "50%",
+                    transform: "translate(-50%, -50%)",
+                    objectFit: "cover",
                     cursor: "pointer",
-                    backgroundColor: gameStarted ? "#f44336" : "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "8px",
-                }}>
-                {gameStarted ? "End Game" : "Start Game"}
-            </button>
-
-            {gameStarted && <BlinkGame />}
+                }}
+            />
+            {gameWake && <BlinkGame />}
         </div>
     );
 }
