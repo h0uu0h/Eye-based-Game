@@ -7,11 +7,13 @@ import styles from "./BlinkGame.module.css";
 import ControlMode from "./ControlMode";
 import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
+import outputIcon from "/icon/output.svg";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null); // ✅ 用 ref 保证引用
+    const capRef = useRef(0);
     const sendFrameIntervalRef = useRef(null);
     const [mode, setMode] = useState("classic");
     const [threshold, setThreshold] = useState(null);
@@ -42,6 +44,15 @@ const BlinkGame = () => {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                 });
+                const videoTrack = stream.getVideoTracks()[0];
+                const capabilities = videoTrack.getCapabilities().frameRate.max;
+                console.log(
+                    "video capabilities:",
+                    videoTrack.getCapabilities()
+                );
+                console.log("video settings:", videoTrack.getSettings());
+                console.log("video constraints:", videoTrack.getConstraints());
+                capRef.current = capabilities;
                 streamRef.current = stream;
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
@@ -84,13 +95,18 @@ const BlinkGame = () => {
                     "image/jpeg",
                     0.6
                 );
-            }, 1000 / 15);
+            }, 1000 / capRef.current);
 
             // 画眼睛点
             socket.current.on("eye_landmarks", drawEyePoints);
         };
 
-        const drawEyePoints = ({ left_eye, right_eye }) => {
+        const drawEyePoints = ({
+            left_eye,
+            right_eye,
+            mouth_outer,
+            mouth_inner,
+        }) => {
             const canvas = canvasRef.current;
             const ctx = canvas.getContext("2d");
 
@@ -117,13 +133,16 @@ const BlinkGame = () => {
                     const px = x * canvas.width;
                     const py = y * canvas.height;
                     ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.arc(px, py, 2, 0, Math.PI * 2);
                     ctx.fill();
                 });
             };
 
             draw(left_eye, "cyan");
             draw(right_eye, "lime");
+            if (mouth_outer?.length) draw(mouth_outer, "cyan"); // 外部轮廓
+            if (mouth_inner?.length) draw(mouth_inner, "lime"); // 内部轮廓
+
             ctx.restore();
         };
 
@@ -161,66 +180,75 @@ const BlinkGame = () => {
             case "control":
                 return <ControlMode onGameEnd={handleGameEnd} />;
             case "classic":
+                return <ClassicMode onGameEnd={handleGameEnd} />;
             default:
                 return <ClassicMode onGameEnd={handleGameEnd} />;
         }
     };
 
     return (
-        <div className={styles.blinkContainer}>
+        <div
+            className={styles.blinkContainer}
+            style={{
+                backgroundColor: gameStarted ? "rgb(0,0,0)" : "rgba(0,0,0,0.5)",
+            }}>
+            {!gameStarted && (
+                <div>
+                    <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>
+                    <button
+                        onClick={() => {
+                            const history =
+                                localStorage.getItem("blinkGameHistory");
+                            if (!history) {
+                                alert("没有历史记录可导出！");
+                                return;
+                            }
+                            const blob = new Blob([history], {
+                                type: "application/json",
+                            });
+                            const url = URL.createObjectURL(blob);
+
+                            const a = document.createElement("a");
+                            a.href = url;
+                            a.download = `blink_game_history_${Date.now()}.json`;
+                            a.click();
+
+                            URL.revokeObjectURL(url); // 释放资源
+                        }}
+                        className={styles.outputBtn}>
+                        <img src={outputIcon} style={{ width: "30px" }} />
+                    </button>
+                    <div>
+                        <select
+                            value={mode}
+                            className={styles.selectBox}
+                            onChange={(e) => setMode(e.target.value)}>
+                            <option value="classic">经典模式</option>
+                            <option value="command">命令模式</option>
+                            <option value="music">音乐模式</option>
+                            <option value="control">控制模式</option>
+                        </select>
+                    </div>
+                </div>
+            )}
             <button
                 onClick={handleToggleGame}
+                className={styles.startBtn}
                 style={{
-                    padding: "10px 20px",
-                    fontSize: "18px",
-                    marginBottom: "20px",
-                    cursor: "pointer",
-                    backgroundColor: gameStarted ? "#f44336" : "#4CAF50",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "8px",
+                    position: gameStarted ? "absolute" : "static",
+                    top: gameStarted ? "60px" : "",
+                    left: gameStarted ? "60px" : "",
                 }}>
-                {gameStarted ? "End Game" : "Start Game"}
-            </button>
-            <button
-                onClick={() => {
-                    const history = localStorage.getItem("blinkGameHistory");
-                    if (!history) {
-                        alert("没有历史记录可导出！");
-                        return;
-                    }
-                    const blob = new Blob([history], {
-                        type: "application/json",
-                    });
-                    const url = URL.createObjectURL(blob);
-
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `blink_game_history_${Date.now()}.json`;
-                    a.click();
-
-                    URL.revokeObjectURL(url); // 释放资源
-                }}
-                style={{
-                    position: "absolute",
-                    bottom: "60px",
-                    left: "10px",
-                    padding: "6px 12px",
-                    fontSize: "14px",
-                    backgroundColor: "#2196F3",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                }}>
-                导出历史记录
+                {gameStarted ? "End Game" : "START"}
             </button>
             {gameStarted && (
                 <div
                     style={{
-                        height: "100%",
-                        width: "100%",
-                        position: "relative",
+                        height: "80%",
+                        width: "90%",
+                        position: "absolute",
+                        zIndex: "-1",
+                        // backgroundColor:"pink",
                     }}>
                     <canvas
                         ref={canvasRef}
@@ -228,10 +256,8 @@ const BlinkGame = () => {
                         height={480}
                         style={{
                             position: "absolute",
-                            top: 0,
-                            left: 0,
+                            left: "0",
                             pointerEvents: "none",
-                            zIndex: 5,
                         }}
                     />
                     <video
@@ -240,10 +266,13 @@ const BlinkGame = () => {
                         muted
                         playsInline
                         style={{
+                            position: "absolute",
+                            left: "0",
                             width: "100%",
                             height: "100%",
                             objectFit: "cover",
                             transform: "scaleX(-1)",
+                            visibility: "hidden",
                         }}
                     />
                     {!calibrated && (
@@ -264,29 +293,12 @@ const BlinkGame = () => {
                             请睁眼、闭眼几次进行校准...
                         </div>
                     )}
-                    <div
-                        style={{
-                            position: "absolute",
-                            top: "10px",
-                            left: "10px",
-                            zIndex: 10,
-                        }}>
-                        <select
-                            value={mode}
-                            onChange={(e) => setMode(e.target.value)}
-                            style={{ fontSize: "16px", padding: "4px" }}>
-                            <option value="classic">经典模式</option>
-                            <option value="command">命令模式</option>
-                            <option value="music">音乐模式</option>
-                            <option value="control">控制模式</option>
-                        </select>
-                    </div>
                     {threshold && calibrated && (
                         <div
                             style={{
                                 position: "absolute",
                                 top: "10px",
-                                right: "10px",
+                                right: "100px",
                                 zIndex: 10,
                                 color: "lightgreen",
                                 fontWeight: "bold",

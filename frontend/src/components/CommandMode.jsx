@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
@@ -7,6 +8,7 @@ import blink1Sound from "/sounds/cmd_blink1.mp3";
 import blink2Sound from "/sounds/cmd_blink2.mp3";
 import closeSound from "/sounds/cmd_close.mp3";
 import openSound from "/sounds/cmd_open.mp3";
+import SegmentedProgress from "./SegmentedProgress";
 
 const COMMANDS = [
     { text: "眨一次", type: "blink", count: 1, audio: blink1Sound },
@@ -15,19 +17,74 @@ const COMMANDS = [
     { text: "睁眼", type: "state", target: "open", audio: openSound },
 ];
 
-const CommandMode = ({ onGameEnd }) => {
-    const canvasRef = useRef(null);
+const CommandMode = ({ onGameEnd, totalTasks = 20 }) => {
     const missAudioRef = useRef(null);
     const successAudioRef = useRef(null);
     const commandAudioRef = useRef(null);
 
     const [eyeState, setEyeState] = useState("open");
+    const [currentTask, setCurrentTask] = useState(0);
+    const [progress, setProgress] = useState(0);
+    const [taskStatus, setTaskStatus] = useState("");
+    const [currentTaskInfo, setCurrentTaskInfo] = useState(COMMANDS[0]);
+    const [taskResults, setTaskResults] = useState([]);
+    const [taskSequence, setTaskSequence] = useState([]);
+
+    const taskTotalRef = useRef(0);
+    const taskSuccessRef = useRef(0);
+    const timerRef = useRef(null);
     const blinkTimestamps = useRef([]);
     const stateTimestamps = useRef([]);
-    const timerRef = useRef(null);
 
-    const commandTotalRef = useRef(0);
-    const commandSuccessRef = useRef(0);
+    // 任务规则
+    const generateRandomTasks = () => {
+        const tasks = [];
+        let lastTaskType = null;
+
+        for (let i = 0; i < totalTasks; i++) {
+            let availableCommands = [...COMMANDS];
+
+            // 规则1: 睁眼任务只有在前一个是闭眼任务时才可能出现
+            if (lastTaskType !== "closed") {
+                availableCommands = availableCommands.filter(
+                    (cmd) => !(cmd.type === "state" && cmd.target === "open")
+                );
+            }
+
+            // 规则2: 避免连续的睁眼任务
+            if (lastTaskType === "open") {
+                availableCommands = availableCommands.filter(
+                    (cmd) => !(cmd.type === "state" && cmd.target === "open")
+                );
+            }
+
+            // 规则3: 闭眼任务后不接眨眼任务
+            if (lastTaskType === "closed") {
+                availableCommands = availableCommands.filter(
+                    (cmd) => cmd.type !== "blink"
+                );
+            }
+
+            // 随机选择一个符合条件的命令
+            const randomIndex = Math.floor(
+                Math.random() * availableCommands.length
+            );
+            const selectedCommand = availableCommands[randomIndex];
+            tasks.push(selectedCommand);
+
+            // 更新最后任务类型
+            lastTaskType =
+                selectedCommand.type === "state"
+                    ? selectedCommand.target
+                    : "blink";
+        }
+
+        return tasks;
+    };
+    // 初始化任务序列
+    useEffect(() => {
+        setTaskSequence(generateRandomTasks());
+    }, [totalTasks]);
 
     // 👁️ 监听眼睛事件
     useEffect(() => {
@@ -52,130 +109,157 @@ const CommandMode = ({ onGameEnd }) => {
         return () => socket.disconnect();
     }, []);
 
-    // 🧠 执行指令任务
     useEffect(() => {
         let active = true;
+        const TOTAL_TIME = 5000;
 
         const triggerCommand = () => {
-            if (!active) return;
+            if (
+                !active ||
+                currentTask >= totalTasks ||
+                taskSequence.length === 0
+            )
+                return;
 
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext("2d");
+            const currentCommand = taskSequence[currentTask];
+            setCurrentTaskInfo(currentCommand);
+            taskTotalRef.current += 1;
+            setTaskStatus("");
 
-            const filteredCommands =
-                eyeState === "closed"
-                    ? COMMANDS.filter(
-                          (c) => c.type === "state" && c.target === "open"
-                      )
-                    : COMMANDS;
-
-            const command =
-                filteredCommands[
-                    Math.floor(Math.random() * filteredCommands.length)
-                ];
-
-            commandTotalRef.current += 1;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.font = "30px Arial";
-            ctx.fillStyle = "yellow";
-            ctx.fillText(command.text, 50, 50);
-
+            // 播放任务提示音
             if (commandAudioRef.current) {
-                commandAudioRef.current.src = command.audio;
+                commandAudioRef.current.src = currentCommand.audio;
                 commandAudioRef.current.play().catch(() => {});
             }
 
             const startTime = Date.now();
-            const startState = eyeState;
-            const initialState = { state: startState, time: startTime };
+            const initialState = { state: eyeState, time: startTime };
+            let taskCompleted = false;
 
-            setTimeout(() => {
-                const now = Date.now();
+            const checkCompletion = () => {
+                if (taskCompleted) return;
+
                 let success = false;
+                const now = Date.now();
 
-                if (command.type === "blink") {
+                // 判断是否眨眼成功
+                if (currentCommand.type === "blink") {
                     const recentBlinks = blinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
                     );
-                    success = recentBlinks.length >= command.count;
-                } else if (command.type === "state") {
+                    success = recentBlinks.length >= currentCommand.count;
+
+                    // 如果是眨眼任务且已完成，立即标记为完成
+                    if (success) {
+                        taskCompleted = true;
+                        completeTask(success);
+                        return;
+                    }
+                }
+                // 判断是否持续达到状态
+                else if (currentCommand.type === "state") {
                     const events = [
                         initialState,
                         ...stateTimestamps.current.filter(
                             (s) => s.time >= startTime && s.time <= now
                         ),
-                    ];
-                    events.sort((a, b) => a.time - b.time);
+                    ].sort((a, b) => a.time - b.time);
 
                     let duration = 0;
-                    let curr = startState;
+                    let curr = eyeState;
                     let prevTime = startTime;
 
                     for (const event of events) {
-                        if (curr === command.target) {
+                        if (curr === currentCommand.target) {
                             duration += event.time - prevTime;
                         }
                         curr = event.state;
                         prevTime = event.time;
                     }
 
-                    if (curr === command.target) {
+                    if (curr === currentCommand.target) {
                         duration += now - prevTime;
                     }
 
-                    success = duration >= 1000;
+                    success = duration >= 3000;
+
+                    // 状态任务需要等待足够时间
+                    if (success) {
+                        taskCompleted = true;
+                        completeTask(success);
+                        return;
+                    }
                 }
 
-                // 播放反馈音
+                // 检查是否超时
+                if (now - startTime >= TOTAL_TIME) {
+                    taskCompleted = true;
+                    completeTask(false);
+                }
+            };
+
+            const completeTask = (success) => {
+                setTaskResults((prev) => [
+                    ...prev,
+                    success ? "Success!" : "Miss!",
+                ]);
                 if (success) {
-                    commandSuccessRef.current += 1;
-                    ctx.fillStyle = "lightgreen";
+                    taskSuccessRef.current += 1;
                     successAudioRef.current?.play();
-                    ctx.fillText("Success!", 50, 100);
+                    setTaskStatus("Success!");
                 } else {
-                    ctx.fillStyle = "orange";
                     missAudioRef.current?.play();
-                    ctx.fillText("Miss!", 50, 100);
+                    setTaskStatus("Miss!");
                 }
 
-                setTimeout(
-                    () => ctx.clearRect(0, 0, canvas.width, canvas.height),
-                    1000
-                );
+                // 更新进度为100%
+                setProgress(1);
 
-                // 继续下一轮
-                if (active) {
-                    timerRef.current = setTimeout(
-                        triggerCommand,
-                        4000 + Math.random() * 3000
-                    );
+                // 任务完成后延时1秒开始下一个任务
+                setTimeout(() => {
+                    setCurrentTask(currentTask + 1);
+                    setProgress(0);
+                    setTaskStatus("");
+                }, 1000);
+            };
+
+            const interval = setInterval(() => {
+                if (!active || taskCompleted) {
+                    clearInterval(interval);
+                    return;
                 }
-            }, 3000);
+
+                const now = Date.now();
+                const elapsedTime = now - startTime;
+                const progress = Math.min(elapsedTime / TOTAL_TIME, 1);
+                setProgress(progress);
+
+                checkCompletion();
+            }, 50);
+
+            return () => clearInterval(interval);
         };
 
-        timerRef.current = setTimeout(
-            triggerCommand,
-            3000 + Math.random() * 3000
-        );
+        if (active && currentTask < totalTasks) {
+            timerRef.current = setTimeout(triggerCommand, 1000);
+        }
 
         return () => {
             active = false;
             if (timerRef.current) clearTimeout(timerRef.current);
         };
-    }, [eyeState]);
+    }, [currentTask, totalTasks, taskSequence]);
 
     // 💾 结算 & 保存
     useEffect(() => {
         return () => {
             if (!onGameEnd) return;
 
-            const total = commandTotalRef.current;
-            const success = commandSuccessRef.current;
+            const total = taskTotalRef.current;
+            const success = taskSuccessRef.current;
             if (total === 0) return;
 
             const successRate = success / total;
-
             const playCount =
                 parseInt(localStorage.getItem("playCount") || "0", 10) + 1;
             localStorage.setItem("playCount", playCount);
@@ -190,6 +274,7 @@ const CommandMode = ({ onGameEnd }) => {
                 commandSuccess: success,
                 successRate,
             };
+
             history.push(gameData);
             localStorage.setItem("blinkGameHistory", JSON.stringify(history));
 
@@ -213,16 +298,13 @@ const CommandMode = ({ onGameEnd }) => {
 
     return (
         <>
-            <canvas
-                ref={canvasRef}
-                width="640"
-                height="480"
-                style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    pointerEvents: "none",
-                }}
+            <SegmentedProgress
+                currentTask={currentTask}
+                totalTasks={totalTasks}
+                taskInfo={currentTaskInfo}
+                taskStatus={taskStatus}
+                progress={progress}
+                taskResults={taskResults}
             />
             <audio ref={commandAudioRef} preload="auto" />
             <audio ref={missAudioRef} src={missSound} preload="auto" />

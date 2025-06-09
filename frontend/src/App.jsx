@@ -20,7 +20,7 @@ function App() {
     return (
         <div
             className="app-container"
-            style={{ textAlign: "center" }}>
+            style={{ textAlign: "center" ,  }}>
             <img
                 src={BgImage}
                 alt="Default Camera"

@@ -25,6 +25,10 @@ mp_drawing = mp.solutions.drawing_utils
 
 LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [362, 385, 387, 263, 373, 380]
+MOUTH_OUTER = [61, 185, 40, 39, 37, 0, 267, 269, 270, 409, 291,
+               375, 321, 405, 314, 17, 84, 181, 91, 146]
+MOUTH_INNER = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324,
+               308, 415, 310, 311, 312, 13, 82, 81, 80, 191]
 
 class BlinkDetector:
     def __init__(self):
@@ -63,10 +67,14 @@ class BlinkDetector:
             # 提取左眼和右眼关键点
             left_eye_points = [landmarks[i] for i in LEFT_EYE]
             right_eye_points = [landmarks[i] for i in RIGHT_EYE]
+            mouth_outer = [landmarks[i] for i in MOUTH_OUTER]
+            mouth_inner = [landmarks[i] for i in MOUTH_INNER]
         
             socketio.start_background_task(lambda: socketio.emit("eye_landmarks", {
                 "left_eye": left_eye_points,
-                "right_eye": right_eye_points
+                "right_eye": right_eye_points,
+                "mouth_outer": mouth_outer,
+                "mouth_inner": mouth_inner
             }))
             if self.calibrating:
                 self.min_ratio = min(self.min_ratio, avg_ratio)

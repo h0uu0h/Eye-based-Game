@@ -8,3 +8,8 @@
   /* 移除内边距 */
   text-align: center;
 }
+
+@font-face {
+  font-family: 'rubik-one';
+  src: url('/fonts/RubikOne-Regular.ttf') format('truetype');
+}

@@ -1,0 +1,85 @@
+.segmented-progress-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    margin-top: 50%;
+    font-family: Arial, sans-serif;
+}
+
+.task-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.task-text {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1.5rem;
+}
+
+.task-status {
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+}
+
+.segmented-progress-bar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    position: relative;
+}
+
+.segment {
+    flex: 1;
+    height: 30px;
+    margin: 0 2px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.segment.completed-success {
+    background-color: #4CAF50;
+    /* 成功完成 - 绿色 */
+}
+
+.segment.completed-fail {
+    background-color: #F44336;
+    /* 失败完成 - 红色 */
+}
+
+.segment.active {
+    background-color: #2196F3;
+    /* 活跃中 - 蓝色 */
+}
+
+.segment-progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background-color: #64B5F6;
+    /* 进度条颜色 */
+    transition: width 0.1s linear;
+}
+
+.segment-label {
+    position: relative;
+    z-index: 1;
+    color: white;
+    font-weight: bold;
+}
+
+.task-counter {
+    text-align: center;
+    color: #ffffff88;
+    font-size: 0.9rem;
+}

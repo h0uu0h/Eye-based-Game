@@ -1,10 +1,53 @@
 .blinkContainer {
+    overflow: hidden;
     position: relative;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5);
     z-index: 1000;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+}
+
+.startBtn {
+    padding: 10px 20px;
+    font-size: 20px;
+    font-family: "rubik-one";
+    font-weight: bolder;
+    cursor: pointer;
+    background-color: rgba(255, 255, 255, 0.3);
+    color: white;
+    border: none;
+    border-radius: 888px;
+}
+
+
+.outputBtn {
+    position: absolute;
+    top: 60px;
+    right: 60px;
+    font-size: 14px;
+    background-color: black;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.selectBox {
+    position: absolute;
+    top: 60px;
+    right: 120px;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    color: black;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    appearance: none;
+    /* background-image: url('../../public/icon/custom-arrow.svg');
+    background-repeat: no-repeat;
+    background-position: left center; */
 }
