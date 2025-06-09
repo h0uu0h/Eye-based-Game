@@ -28,7 +28,17 @@
     top: 60px;
     right: 60px;
     font-size: 14px;
-    background-color: black;
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.deleteBtn {
+    position: absolute;
+    top: 105px;
+    right: 63px;
+    font-size: 14px;
+    background-color: transparent;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -39,15 +49,29 @@
     top: 60px;
     right: 120px;
     font-size: 16px;
-    padding: 4px 8px;
+    padding: 4px 0px 4px 4px;
     border-radius: 8px;
     border: 1px solid #ccc;
     background-color: #fff;
     color: black;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     cursor: pointer;
-    appearance: none;
+    /* appearance: none; */
     /* background-image: url('../../public/icon/custom-arrow.svg');
     background-repeat: no-repeat;
     background-position: left center; */
+}
+
+.calibrateBtn {
+    position: absolute;
+    top: 60px;
+    right: 220px;
+    font-size: 16px;
+    padding: 5px 8px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    color: black;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
 }

@@ -8,15 +8,16 @@ import ControlMode from "./ControlMode";
 import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
 import outputIcon from "/icon/output.svg";
+import deleteIcon from "/icon/delete.svg";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
     const videoRef = useRef(null);
-    const streamRef = useRef(null); // ✅ 用 ref 保证引用
+    const streamRef = useRef(null);
     const capRef = useRef(0);
     const sendFrameIntervalRef = useRef(null);
     const [mode, setMode] = useState("classic");
-    const [threshold, setThreshold] = useState(null);
+    // const [threshold, setThreshold] = useState(null);
     const [calibrated, setCalibrated] = useState(false);
     const socket = useRef(null);
 
@@ -65,14 +66,25 @@ const BlinkGame = () => {
                 transports: ["websocket"],
             });
 
-            socket.current.on("calibrated", (data) => {
-                setThreshold(data.threshold.toFixed(3));
+            // 已校准 => 读取本地存储的阈值，否则触发校准
+            const localThreshold = localStorage.getItem("threshold");
+            if (localThreshold) {
                 setCalibrated(true);
-            });
+                // setThreshold(parseFloat(localThreshold));
+                console.log("已加载本地阈值:", localThreshold);
+            } else {
+                // ⬅️ 第一次使用，发起校准
+                fetch(`${import.meta.env.VITE_SOCKET_URL}/start_calibration`, {
+                    method: "POST",
+                });
+            }
 
-            // 启动校准
-            fetch(`${import.meta.env.VITE_SOCKET_URL}/start_calibration`, {
-                method: "POST",
+            // 监听校准完成
+            socket.current.on("calibrated", (data) => {
+                const threshold = data.threshold.toFixed(3);
+                // setThreshold(threshold);
+                setCalibrated(true);
+                localStorage.setItem("threshold", threshold);
             });
 
             // 发送帧
@@ -164,9 +176,6 @@ const BlinkGame = () => {
                 socket.current.off("eye_landmarks");
                 socket.current.disconnect();
             }
-
-            setCalibrated(false);
-            setThreshold(null);
         };
     }, [gameStarted]);
 
@@ -192,45 +201,78 @@ const BlinkGame = () => {
             style={{
                 backgroundColor: gameStarted ? "rgb(0,0,0)" : "rgba(0,0,0,0.5)",
             }}>
-            {!gameStarted && (
-                <div>
-                    <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>
-                    <button
-                        onClick={() => {
-                            const history =
-                                localStorage.getItem("blinkGameHistory");
-                            if (!history) {
-                                alert("没有历史记录可导出！");
-                                return;
-                            }
-                            const blob = new Blob([history], {
-                                type: "application/json",
-                            });
-                            const url = URL.createObjectURL(blob);
+            {!gameStarted && <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>}
+            <button
+                disabled={gameStarted}
+                onClick={() => {
+                    const history = localStorage.getItem("blinkGameHistory");
+                    if (!history) {
+                        alert("没有历史记录可导出！");
+                        return;
+                    }
+                    const blob = new Blob([history], {
+                        type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
 
-                            const a = document.createElement("a");
-                            a.href = url;
-                            a.download = `blink_game_history_${Date.now()}.json`;
-                            a.click();
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `blink_game_history_${Date.now()}.json`;
+                    a.click();
 
-                            URL.revokeObjectURL(url); // 释放资源
-                        }}
-                        className={styles.outputBtn}>
-                        <img src={outputIcon} style={{ width: "30px" }} />
-                    </button>
-                    <div>
-                        <select
-                            value={mode}
-                            className={styles.selectBox}
-                            onChange={(e) => setMode(e.target.value)}>
-                            <option value="classic">经典模式</option>
-                            <option value="command">命令模式</option>
-                            <option value="music">音乐模式</option>
-                            <option value="control">控制模式</option>
-                        </select>
-                    </div>
-                </div>
-            )}
+                    URL.revokeObjectURL(url); // 释放资源
+                }}
+                className={styles.outputBtn}>
+                <img
+                    src={outputIcon}
+                    style={{
+                        width: "30px",
+                        fill: gameStarted ? "#b3b3b3" : "white",
+                    }}
+                />
+            </button>
+            <div>
+                <select
+                    disabled={gameStarted}
+                    value={mode}
+                    className={styles.selectBox}
+                    onChange={(e) => setMode(e.target.value)}>
+                    <option value="classic">校准模式</option>
+                    <option value="command">命令模式</option>
+                    <option value="music">音乐模式</option>
+                    <option value="control">控制模式</option>
+                </select>
+            </div>
+            <button
+                disabled={gameStarted}
+                style={{ backgroundColor: gameStarted ? "#b3b3b3" : "white" }}
+                className={styles.calibrateBtn}
+                onClick={() => {
+                    localStorage.removeItem("threshold");
+                    setCalibrated(false);
+                    alert("已清除校准数据，下次进入将重新校准");
+                }}>
+                {localStorage.getItem("threshold") || "uncalibrated"}
+            </button>
+            <button
+                disabled={gameStarted}
+                onClick={() => {
+                    if (confirm("确定要清除所有历史记录吗？此操作不可撤销。")) {
+                        localStorage.removeItem("blinkGameHistory");
+                        alert("历史记录已清除！");
+                    }
+                }}
+                className={styles.deleteBtn}
+            >
+                <img
+                    src={deleteIcon} // 你可以换成删除图标
+                    style={{
+                        width: "24px",
+                        filter: gameStarted ? "grayscale(100%)" : "none",
+                    }}
+                    alt="清除历史"
+                />
+            </button>
             <button
                 onClick={handleToggleGame}
                 className={styles.startBtn}
@@ -256,8 +298,11 @@ const BlinkGame = () => {
                         height={480}
                         style={{
                             position: "absolute",
-                            left: "0",
+                            top: "50%",
+                            left: "50%",
+                            transform: "translate(-50%, -50%)",
                             pointerEvents: "none",
+                            border: "15px dashed rgba(255,255,255,0.5)",
                         }}
                     />
                     <video
@@ -291,19 +336,6 @@ const BlinkGame = () => {
                                 zIndex: 20,
                             }}>
                             请睁眼、闭眼几次进行校准...
-                        </div>
-                    )}
-                    {threshold && calibrated && (
-                        <div
-                            style={{
-                                position: "absolute",
-                                top: "10px",
-                                right: "100px",
-                                zIndex: 10,
-                                color: "lightgreen",
-                                fontWeight: "bold",
-                            }}>
-                            阈值: {threshold}
                         </div>
                     )}
                     {renderModeComponent()}

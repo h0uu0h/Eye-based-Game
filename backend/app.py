@@ -80,7 +80,7 @@ class BlinkDetector:
                 self.min_ratio = min(self.min_ratio, avg_ratio)
                 self.max_ratio = max(self.max_ratio, avg_ratio)
                 self.ratios.append(avg_ratio)
-                if len(self.ratios) >= 30:
+                if len(self.ratios) >= 100:
                     self.threshold = self.min_ratio + (self.max_ratio - self.min_ratio) * 0.4
                     self.calibrating = False
                     socketio.start_background_task(lambda: socketio.emit("calibrated", {

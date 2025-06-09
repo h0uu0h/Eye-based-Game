@@ -65,7 +65,7 @@ const GameSummary = ({ data, onClose }) => {
             <p>
                 历史排名：{data.rank} / {data.totalGames}
             </p>
-            <p>该模式游戏总次数：{data.playCount}</p>
+            <p>该模式游戏总次数：{data.totalGames}</p>
 
             <button
                 onClick={onClose}

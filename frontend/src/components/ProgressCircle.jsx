@@ -26,7 +26,7 @@ const ProgressCircle = ({
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
         ctx.lineWidth = strokeWidth;
-        ctx.strokeStyle = "#ddd"; // background color (light gray)
+        ctx.strokeStyle = "#444444"; // background color (light gray)
         ctx.stroke();
 
         // Draw progress circle (yellow)
@@ -44,9 +44,6 @@ const ProgressCircle = ({
             height={size}
             style={{
                 display: "block",
-                // position: "absolute",
-                // top: "20px",
-                // left: "50%",
                 margin: "0 auto",
                 borderRadius: "50%",
                 backgroundColor: "transparent",

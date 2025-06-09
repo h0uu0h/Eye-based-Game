@@ -17,7 +17,7 @@ const COMMANDS = [
     { text: "睁眼", type: "state", target: "open", audio: openSound },
 ];
 
-const CommandMode = ({ onGameEnd, totalTasks = 20 }) => {
+const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
     const missAudioRef = useRef(null);
     const successAudioRef = useRef(null);
     const commandAudioRef = useRef(null);
