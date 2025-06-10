@@ -7,6 +7,7 @@ import styles from "./BlinkGame.module.css";
 import ControlMode from "./ControlMode";
 import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
+import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
 
@@ -122,26 +123,43 @@ const BlinkGame = () => {
             const canvas = canvasRef.current;
             const ctx = canvas.getContext("2d");
 
+            // 确保画布尺寸正确
+            if (!canvas.width || !canvas.height) {
+                canvas.width = 640;
+                canvas.height = 480;
+            }
+
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.save();
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
 
             const draw = (points, color) => {
+                // 处理二维和三维坐标
+                const normalizedPoints = points.map((point) => {
+                    // 如果是二维坐标 [x, y]
+                    if (point.length === 2) return point;
+                    // 如果是三维坐标 [x, y, z]
+                    if (point.length === 3) return [point[0], point[1]];
+                    return [0, 0]; // 默认值
+                });
+
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                points.forEach(([x, y], idx) => {
+
+                normalizedPoints.forEach(([x, y], idx) => {
                     const px = x * canvas.width;
                     const py = y * canvas.height;
                     if (idx === 0) ctx.moveTo(px, py);
                     else ctx.lineTo(px, py);
                 });
+
                 ctx.closePath();
                 ctx.stroke();
 
                 ctx.fillStyle = color;
-                points.forEach(([x, y]) => {
+                normalizedPoints.forEach(([x, y]) => {
                     const px = x * canvas.width;
                     const py = y * canvas.height;
                     ctx.beginPath();
@@ -150,10 +168,10 @@ const BlinkGame = () => {
                 });
             };
 
-            draw(left_eye, "cyan");
-            draw(right_eye, "lime");
-            if (mouth_outer?.length) draw(mouth_outer, "cyan"); // 外部轮廓
-            if (mouth_inner?.length) draw(mouth_inner, "lime"); // 内部轮廓
+            if (left_eye?.length) draw(left_eye, "cyan");
+            if (right_eye?.length) draw(right_eye, "lime");
+            if (mouth_outer?.length) draw(mouth_outer, "cyan");
+            if (mouth_inner?.length) draw(mouth_inner, "lime");
 
             ctx.restore();
         };
@@ -188,6 +206,8 @@ const BlinkGame = () => {
                 return <MusicMode onGameEnd={handleGameEnd} />;
             case "control":
                 return <ControlMode onGameEnd={handleGameEnd} />;
+            case "play":
+                return <PlayMode onGameEnd={handleGameEnd} />;
             case "classic":
                 return <ClassicMode onGameEnd={handleGameEnd} />;
             default:
@@ -239,6 +259,7 @@ const BlinkGame = () => {
                     onChange={(e) => setMode(e.target.value)}>
                     <option value="classic">校准模式</option>
                     <option value="command">命令模式</option>
+                    <option value="play">演奏模式</option>
                     <option value="music">音乐模式</option>
                     <option value="control">控制模式</option>
                 </select>
@@ -262,8 +283,7 @@ const BlinkGame = () => {
                         alert("历史记录已清除！");
                     }
                 }}
-                className={styles.deleteBtn}
-            >
+                className={styles.deleteBtn}>
                 <img
                     src={deleteIcon} // 你可以换成删除图标
                     style={{

@@ -3,9 +3,11 @@ import { io } from "socket.io-client";
 import musicSound from "/sounds/陶喆-天天.mp3";
 
 const ControlMode = () => {
-    const canvasRef = useRef(null);
     const musicRef = useRef(null);
     const [eyeState, setEyeState] = useState("open");
+
+    const [message, setMessage] = useState(""); // 当前文字提示
+    const [messageColor, setMessageColor] = useState("white"); // 提示文字颜色
 
     useEffect(() => {
         const socket = io(import.meta.env.VITE_SOCKET_URL);
@@ -18,31 +20,35 @@ const ControlMode = () => {
     }, []);
 
     useEffect(() => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext("2d");
-
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.font = "24px Arial";
-
         if (eyeState === "closed" && musicRef.current.paused) {
             musicRef.current.play();
-            ctx.fillStyle = "lightgreen";
-            ctx.fillText("▶ 播放中（闭眼）", 40, 50);
+            setMessage("▶ 播放中（闭眼）");
+            setMessageColor("cyan");
         } else if (eyeState === "open" && !musicRef.current.paused) {
             musicRef.current.pause();
-            ctx.fillStyle = "orange";
-            ctx.fillText("⏸ 已暂停（睁眼）", 40, 50);
+            setMessage("⏸ 已暂停（睁眼）");
+            setMessageColor("orange");
         }
     }, [eyeState]);
 
     return (
         <>
-            <canvas
-                ref={canvasRef}
-                width="640"
-                height="480"
-                style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }}
-            />
+            <div
+                style={{
+                    position: "absolute",
+                    top: "25%",
+                    left: "14%",
+                    transform: "translateY(-50%)",
+                    color: messageColor,
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    zIndex: 20,
+                    textShadow: "0 0 5px black",
+                    transition: "opacity 0.3s",
+                    pointerEvents: "none",
+                }}>
+                {message}
+            </div>
             <audio ref={musicRef} src={musicSound} preload="auto" loop />
         </>
     );

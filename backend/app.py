@@ -41,6 +41,16 @@ class BlinkDetector:
         self.max_ratio = float("-inf")
         self.threshold = 0.3
 
+        # 新增左右眼检测
+        self.left_blink_counter = 0
+        self.right_blink_counter = 0
+        self.left_total_blinks = 0
+        self.right_total_blinks = 0
+
+        # 新增双眼状态跟踪
+        self.left_eye_state = "open"
+        self.right_eye_state = "open"
+
     def _blink_ratio(self, landmarks, eye_points):
         def euclidean(p1, p2):
             x1, y1, z1 = p1
@@ -64,18 +74,21 @@ class BlinkDetector:
             left_ratio = self._blink_ratio(landmarks, LEFT_EYE)
             right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
             avg_ratio = (left_ratio + right_ratio) / 2
-            # 提取左眼和右眼关键点
+
+            # 提取关键点用于可视化
             left_eye_points = [landmarks[i] for i in LEFT_EYE]
             right_eye_points = [landmarks[i] for i in RIGHT_EYE]
             mouth_outer = [landmarks[i] for i in MOUTH_OUTER]
             mouth_inner = [landmarks[i] for i in MOUTH_INNER]
-        
+            print(left_eye_points)
             socketio.start_background_task(lambda: socketio.emit("eye_landmarks", {
                 "left_eye": left_eye_points,
                 "right_eye": right_eye_points,
                 "mouth_outer": mouth_outer,
                 "mouth_inner": mouth_inner
             }))
+
+            # 校准
             if self.calibrating:
                 self.min_ratio = min(self.min_ratio, avg_ratio)
                 self.max_ratio = max(self.max_ratio, avg_ratio)
@@ -88,6 +101,7 @@ class BlinkDetector:
                     }))
                 return
 
+            # 整体眨眼检测
             if avg_ratio < self.threshold:
                 if self.current_eye_state != "closed":
                     self.current_eye_state = "closed"
@@ -104,13 +118,47 @@ class BlinkDetector:
                     self.current_eye_state = "open"
                     socketio.start_background_task(lambda: socketio.emit("eye_state", {"status": "open"}))
 
+            # 左眼眨眼检测
+            if left_ratio < self.threshold:
+                self.left_blink_counter += 1
+                if self.left_eye_state != "closed":
+                    self.left_eye_state = "closed"
+                    socketio.start_background_task(lambda: socketio.emit("left_eye_state", {"status": "closed"}))
+            else:
+                if self.left_blink_counter > 2:
+                    self.left_total_blinks += 1
+                    socketio.start_background_task(lambda: socketio.emit("left_blink_event", {
+                        "total": self.left_total_blinks
+                    }))
+                self.left_blink_counter = 0
+                if self.left_eye_state != "open":
+                    self.left_eye_state = "open"
+                    socketio.start_background_task(lambda: socketio.emit("left_eye_state", {"status": "open"}))
+
+            # 右眼眨眼检测
+            if right_ratio < self.threshold:
+                self.right_blink_counter += 1
+                if self.right_eye_state != "closed":
+                    self.right_eye_state = "closed"
+                    socketio.start_background_task(lambda: socketio.emit("right_eye_state", {"status": "closed"}))
+            else:
+                if self.right_blink_counter > 2:
+                    self.right_total_blinks += 1
+                    socketio.start_background_task(lambda: socketio.emit("right_blink_event", {
+                        "total": self.right_total_blinks
+                    }))
+                self.right_blink_counter = 0
+                if self.right_eye_state != "open":
+                    self.right_eye_state = "open"
+                    socketio.start_background_task(lambda: socketio.emit("right_eye_state", {"status": "open"}))
+
 
 detector = BlinkDetector()
 
 @socketio.on("frame")
 def handle_frame(data):
     try:
-        if hasattr(data, "read"):  # 👈 检查Blob
+        if hasattr(data, "read"):
             image_data = data.read()
         else:
             image_data = data
