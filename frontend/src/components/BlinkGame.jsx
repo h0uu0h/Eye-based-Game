@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
@@ -7,6 +8,7 @@ import styles from "./BlinkGame.module.css";
 import ControlMode from "./ControlMode";
 import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
+import DataPanel from "./DataPanel";
 import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
@@ -22,7 +24,7 @@ const BlinkGame = () => {
     const [calibrated, setCalibrated] = useState(false);
     const socket = useRef(null);
 
-    /***************************** */
+    /**************结算************* */
     const [summary, setSummary] = useState(null);
     const [gameStarted, setGameStarted] = useState(false);
 
@@ -34,6 +36,69 @@ const BlinkGame = () => {
         if (!result) return;
         setSummary(result); // 弹出结算框
     };
+    /***************************** */
+
+    /*************实验数据************ */
+    const [showDataPanel, setShowDataPanel] = useState(false);
+    const [experimentData, setExperimentData] = useState({
+        gameId: Date.now().toString(36) + Math.random().toString(36).substr(2),
+        startTime: Date.now(),
+        endTime: null,
+        mode: null,
+        frames: [],
+        events: [],
+        calibration: [],
+    });
+
+    // 添加键盘事件监听
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "h" || e.key === "H") {
+                setShowDataPanel((prev) => !prev);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+        };
+    }, []);
+
+    // 初始化实验数据
+    useEffect(() => {
+        if (gameStarted) {
+            setExperimentData({
+                gameId:
+                    Date.now().toString(36) +
+                    Math.random().toString(36).substr(2),
+                startTime: Date.now(),
+                endTime: null,
+                mode,
+                frames: [],
+                events: [],
+                calibration: [],
+            });
+        }
+    }, [gameStarted, mode]);
+
+    // 游戏结束时保存实验数据
+    useEffect(() => {
+        if (!gameStarted && experimentData.startTime) {
+            const completedData = {
+                ...experimentData,
+                endTime: Date.now(),
+            };
+
+            // 保存到本地存储
+            const experiments = JSON.parse(
+                localStorage.getItem("experimentData") || "[]"
+            );
+            experiments.push(completedData);
+            localStorage.setItem("experimentData", JSON.stringify(experiments));
+
+            setExperimentData(completedData);
+        }
+    }, [gameStarted]);
     /***************************** */
 
     // 游戏开始的逻辑
@@ -363,6 +428,13 @@ const BlinkGame = () => {
             )}
             {summary && (
                 <GameSummary data={summary} onClose={() => setSummary(null)} />
+            )}
+            {showDataPanel && (
+                <DataPanel
+                    onClose={() => setShowDataPanel(false)}
+                    experimentData={experimentData}
+                    setExperimentData={setExperimentData}
+                />
             )}
         </div>
     );

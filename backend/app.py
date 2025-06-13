@@ -80,7 +80,7 @@ class BlinkDetector:
             right_eye_points = [landmarks[i] for i in RIGHT_EYE]
             mouth_outer = [landmarks[i] for i in MOUTH_OUTER]
             mouth_inner = [landmarks[i] for i in MOUTH_INNER]
-            print(left_eye_points)
+            # print(left_eye_points)
             socketio.start_background_task(lambda: socketio.emit("eye_landmarks", {
                 "left_eye": left_eye_points,
                 "right_eye": right_eye_points,
@@ -151,7 +151,9 @@ class BlinkDetector:
                 if self.right_eye_state != "open":
                     self.right_eye_state = "open"
                     socketio.start_background_task(lambda: socketio.emit("right_eye_state", {"status": "open"}))
-
+            socketio.start_background_task(lambda: socketio.emit("ear_value", {
+                "value": avg_ratio
+            }))
 
 detector = BlinkDetector()
 
