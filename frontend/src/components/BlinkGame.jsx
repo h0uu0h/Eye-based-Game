@@ -120,6 +120,7 @@ const BlinkGame = () => {
                 console.log("video settings:", videoTrack.getSettings());
                 console.log("video constraints:", videoTrack.getConstraints());
                 capRef.current = capabilities;
+                capRef.current = 10;
                 streamRef.current = stream;
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
