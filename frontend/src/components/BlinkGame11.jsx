@@ -15,14 +15,9 @@ import deleteIcon from "/icon/delete.svg";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
-    const videoRef = useRef(null);
-    const streamRef = useRef(null);
-    const capRef = useRef(0);
-    const sendFrameIntervalRef = useRef(null);
-    const [mode, setMode] = useState("classic");
-    // const [threshold, setThreshold] = useState(null);
-    const [calibrated, setCalibrated] = useState(false);
     const socket = useRef(null);
+    const [mode, setMode] = useState("classic");
+    const [calibrated, setCalibrated] = useState(false);
 
     /**************结算************* */
     const [summary, setSummary] = useState(null);
@@ -105,162 +100,110 @@ const BlinkGame = () => {
     useEffect(() => {
         if (!gameStarted) return;
 
-        // 摄像头 + socket 初始化
-        const setupCameraAndSocket = async () => {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                });
-                const videoTrack = stream.getVideoTracks()[0];
-                const capabilities = videoTrack.getCapabilities().frameRate.max;
-                console.log(
-                    "video capabilities:",
-                    videoTrack.getCapabilities()
-                );
-                console.log("video settings:", videoTrack.getSettings());
-                console.log("video constraints:", videoTrack.getConstraints());
-                capRef.current = capabilities;
-                streamRef.current = stream;
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-            } catch (err) {
-                console.error("获取摄像头失败:", err);
-            }
+        socket.current = io(import.meta.env.VITE_SOCKET_URL, {
+            transports: ["websocket"],
+        });
 
-            socket.current = io(import.meta.env.VITE_SOCKET_URL, {
-                transports: ["websocket"],
+        // 已校准 => 读取本地存储的阈值，否则触发校准
+        const localThreshold = localStorage.getItem("threshold");
+        if (localThreshold) {
+            setCalibrated(true);
+            console.log("已加载本地阈值:", localThreshold);
+        } else {
+            // ⬅️ 第一次使用，发起校准
+            fetch(`${import.meta.env.VITE_SOCKET_URL}/start_calibration`, {
+                method: "POST",
             });
+        }
 
-            // 已校准 => 读取本地存储的阈值，否则触发校准
-            const localThreshold = localStorage.getItem("threshold");
-            if (localThreshold) {
-                setCalibrated(true);
-                // setThreshold(parseFloat(localThreshold));
-                console.log("已加载本地阈值:", localThreshold);
-            } else {
-                // ⬅️ 第一次使用，发起校准
-                fetch(`${import.meta.env.VITE_SOCKET_URL}/start_calibration`, {
-                    method: "POST",
-                });
-            }
+        // 监听校准完成
+        socket.current.on("calibrated", (data) => {
+            const threshold = data.threshold.toFixed(3);
+            setCalibrated(true);
+            localStorage.setItem("threshold", threshold);
+        });
 
-            // 监听校准完成
-            socket.current.on("calibrated", (data) => {
-                const threshold = data.threshold.toFixed(3);
-                // setThreshold(threshold);
-                setCalibrated(true);
-                localStorage.setItem("threshold", threshold);
-            });
-
-            // 发送帧
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            sendFrameIntervalRef.current = setInterval(() => {
-                const video = videoRef.current;
-                if (!video) return;
-
-                canvas.width = video.videoWidth || 640;
-                canvas.height = video.videoHeight || 480;
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-                canvas.toBlob(
-                    (blob) => {
-                        if (blob && socket.current?.connected) {
-                            socket.current.emit("frame", blob);
-                        }
-                    },
-                    "image/jpeg",
-                    0.6
-                );
-            }, 1000 / capRef.current);
-
-            // 画眼睛点
-            socket.current.on("eye_landmarks", drawEyePoints);
-        };
-
-        const drawEyePoints = ({
-            left_eye,
-            right_eye,
-            mouth_outer,
-            mouth_inner,
-        }) => {
-            const canvas = canvasRef.current;
-            const ctx = canvas.getContext("2d");
-
-            // 确保画布尺寸正确
-            if (!canvas.width || !canvas.height) {
-                canvas.width = 640;
-                canvas.height = 480;
-            }
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.save();
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-
-            const draw = (points, color) => {
-                // 处理二维和三维坐标
-                const normalizedPoints = points.map((point) => {
-                    // 如果是二维坐标 [x, y]
-                    if (point.length === 2) return point;
-                    // 如果是三维坐标 [x, y, z]
-                    if (point.length === 3) return [point[0], point[1]];
-                    return [0, 0]; // 默认值
-                });
-
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-
-                normalizedPoints.forEach(([x, y], idx) => {
-                    const px = x * canvas.width;
-                    const py = y * canvas.height;
-                    if (idx === 0) ctx.moveTo(px, py);
-                    else ctx.lineTo(px, py);
-                });
-
-                ctx.closePath();
-                ctx.stroke();
-
-                ctx.fillStyle = color;
-                normalizedPoints.forEach(([x, y]) => {
-                    const px = x * canvas.width;
-                    const py = y * canvas.height;
-                    ctx.beginPath();
-                    ctx.arc(px, py, 2, 0, Math.PI * 2);
-                    ctx.fill();
-                });
-            };
-
-            if (left_eye?.length) draw(left_eye, "cyan");
-            if (right_eye?.length) draw(right_eye, "lime");
-            if (mouth_outer?.length) draw(mouth_outer, "cyan");
-            if (mouth_inner?.length) draw(mouth_inner, "lime");
-
-            ctx.restore();
-        };
-
-        setupCameraAndSocket();
+        // 画眼睛点
+        socket.current.on("eye_landmarks", drawEyePoints);
+        
+        // 告诉后端开始捕获摄像头
+        socket.current.emit("start_capture");
 
         return () => {
-            // 释放资源
-            if (streamRef.current) {
-                streamRef.current.getTracks().forEach((t) => t.stop());
-                streamRef.current = null;
-            }
-            if (videoRef.current) {
-                videoRef.current.srcObject = null;
-            }
-            if (sendFrameIntervalRef.current) {
-                clearInterval(sendFrameIntervalRef.current);
-            }
+            // 告诉后端停止捕获摄像头
             if (socket.current) {
+                socket.current.emit("stop_capture");
                 socket.current.off("eye_landmarks");
                 socket.current.disconnect();
             }
         };
     }, [gameStarted]);
+
+    const drawEyePoints = ({
+        left_eye,
+        right_eye,
+        mouth_outer,
+        mouth_inner,
+    }) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext("2d");
+
+        // 确保画布尺寸正确
+        if (!canvas.width || !canvas.height) {
+            canvas.width = 640;
+            canvas.height = 480;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+
+        const draw = (points, color) => {
+            if (!points || points.length === 0) return;
+            
+            // 处理二维和三维坐标
+            const normalizedPoints = points.map((point) => {
+                // 如果是二维坐标 [x, y]
+                if (point.length === 2) return point;
+                // 如果是三维坐标 [x, y, z]
+                if (point.length === 3) return [point[0], point[1]];
+                return [0, 0]; // 默认值
+            });
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            normalizedPoints.forEach(([x, y], idx) => {
+                const px = x * canvas.width;
+                const py = y * canvas.height;
+                if (idx === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            });
+
+            ctx.closePath();
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            normalizedPoints.forEach(([x, y]) => {
+                const px = x * canvas.width;
+                const py = y * canvas.height;
+                ctx.beginPath();
+                ctx.arc(px, py, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        };
+
+        if (left_eye?.length) draw(left_eye, "cyan");
+        if (right_eye?.length) draw(right_eye, "lime");
+        if (mouth_outer?.length) draw(mouth_outer, "cyan");
+        if (mouth_inner?.length) draw(mouth_inner, "lime");
+
+        ctx.restore();
+    };
 
     // mode change
     const renderModeComponent = () => {
@@ -350,7 +293,7 @@ const BlinkGame = () => {
                 }}
                 className={styles.deleteBtn}>
                 <img
-                    src={deleteIcon} // 你可以换成删除图标
+                    src={deleteIcon}
                     style={{
                         width: "24px",
                         filter: gameStarted ? "grayscale(100%)" : "none",
@@ -375,7 +318,6 @@ const BlinkGame = () => {
                         width: "90%",
                         position: "absolute",
                         zIndex: "-1",
-                        // backgroundColor:"pink",
                     }}>
                     <canvas
                         ref={canvasRef}
@@ -388,21 +330,6 @@ const BlinkGame = () => {
                             transform: "translate(-50%, -50%)",
                             pointerEvents: "none",
                             border: "15px dashed rgba(255,255,255,0.5)",
-                        }}
-                    />
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        muted
-                        playsInline
-                        style={{
-                            position: "absolute",
-                            left: "0",
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                            transform: "scaleX(-1)",
-                            visibility: "hidden",
                         }}
                     />
                     {!calibrated && (

@@ -8,10 +8,12 @@ import styles from "./BlinkGame.module.css";
 import ControlMode from "./ControlMode";
 import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
+import VoiceFeedbackMode from "./VoiceFeedbackMode";
 import DataPanel from "./DataPanel";
 import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
+import BlinkMarker from "./BlinkMarker";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
@@ -23,6 +25,7 @@ const BlinkGame = () => {
     // const [threshold, setThreshold] = useState(null);
     const [calibrated, setCalibrated] = useState(false);
     const socket = useRef(null);
+    const [blinkMarkers, setBlinkMarkers] = useState([]);
 
     /**************结算************* */
     const [summary, setSummary] = useState(null);
@@ -120,7 +123,6 @@ const BlinkGame = () => {
                 console.log("video settings:", videoTrack.getSettings());
                 console.log("video constraints:", videoTrack.getConstraints());
                 capRef.current = capabilities;
-                capRef.current = 10;
                 streamRef.current = stream;
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
@@ -276,6 +278,8 @@ const BlinkGame = () => {
                 return <PlayMode onGameEnd={handleGameEnd} />;
             case "classic":
                 return <ClassicMode onGameEnd={handleGameEnd} />;
+            case "voice":
+                return <VoiceFeedbackMode />;
             default:
                 return <ClassicMode onGameEnd={handleGameEnd} />;
         }
@@ -328,6 +332,7 @@ const BlinkGame = () => {
                     <option value="play">演奏模式</option>
                     <option value="music">音乐模式</option>
                     <option value="control">控制模式</option>
+                    <option value="voice">播报模式</option>
                 </select>
             </div>
             <button
@@ -403,6 +408,7 @@ const BlinkGame = () => {
                             height: "100%",
                             objectFit: "cover",
                             transform: "scaleX(-1)",
+                            zIndex: "-1",
                             visibility: "hidden",
                         }}
                     />

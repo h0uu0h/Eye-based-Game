@@ -3,12 +3,15 @@ eventlet.monkey_patch()
 
 from flask import Flask, request
 from flask_cors import CORS
-from flask_socketio import SocketIO
+from flask_socketio import SocketIO, emit
 import cv2
 import numpy as np
+import base64
 from io import BytesIO
 from PIL import Image
 from keras.models import load_model
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -36,8 +39,12 @@ IMG_SIZE = (34, 26)  # 模型输入尺寸
 model = load_model('models/2018_12_17_22_58_35.h5', compile=False)
 print("CNN模型加载完成")
 
-class BlinkDetector:
+class CameraProcessor:
     def __init__(self):
+        self.cap = None
+        self.running = False
+        self.thread = None
+        
         # 眨眼计数器
         self.blink_counter = 0
         self.total_blinks = 0
@@ -60,6 +67,43 @@ class BlinkDetector:
         self.min_pred = float("inf")
         self.max_pred = float("-inf")
         self.threshold = 0.1  # 默认阈值
+
+    def start_capture(self):
+        if self.running:
+            return
+            
+        self.running = True
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            print("无法打开摄像头")
+            return
+            
+        # 设置摄像头分辨率
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+        self.thread = threading.Thread(target=self._capture_loop)
+        self.thread.daemon = True
+        self.thread.start()
+
+    def stop_capture(self):
+        self.running = False
+        if self.thread:
+            self.thread.join(timeout=1.0)
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+
+    def _capture_loop(self):
+        while self.running:
+            ret, frame = self.cap.read()
+            if not ret:
+                print("无法读取摄像头帧")
+                time.sleep(0.1)
+                continue
+                
+            self.process_frame(frame)
+            time.sleep(0.05)  # 控制帧率约20fps
 
     def crop_eye(self, gray, eye_points, frame_width, frame_height):
         """从灰度图像中裁剪眼睛区域"""
@@ -239,27 +283,24 @@ class BlinkDetector:
                 "value": float(avg_pred)
             }))
 
-detector = BlinkDetector()
+camera_processor = CameraProcessor()
 
-@socketio.on("frame")
-def handle_frame(data):
-    try:
-        if hasattr(data, "read"):
-            image_data = data.read()
-        else:
-            image_data = data
-        img = Image.open(BytesIO(image_data))
-        frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-        detector.process_frame(frame)
-    except Exception as e:
-        print("[ERROR] Frame decode failed:", e)
+@socketio.on("start_capture")
+def handle_start_capture():
+    print("开始捕获摄像头")
+    camera_processor.start_capture()
 
+@socketio.on("stop_capture")
+def handle_stop_capture():
+    print("停止捕获摄像头")
+    camera_processor.stop_capture()
+h
 @app.route("/start_calibration", methods=["POST"])
 def start_calibration():
-    detector.calibrating = True
-    detector.pred_values = []
-    detector.min_pred = float("inf")
-    detector.max_pred = float("-inf")
+    camera_processor.calibrating = True
+    camera_processor.pred_values = []
+    camera_processor.min_pred = float("inf")
+    camera_processor.max_pred = float("-inf")
     return {"status": "calibrating"}
 
 @app.route("/")

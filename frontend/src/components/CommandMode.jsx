@@ -8,11 +8,15 @@ import blink1Sound from "/sounds/cmd_blink1.mp3";
 import blink2Sound from "/sounds/cmd_blink2.mp3";
 import closeSound from "/sounds/cmd_close.mp3";
 import openSound from "/sounds/cmd_open.mp3";
+import leftBlinkSound from "/sounds/leftblink.mp3";
+import rightBlinkSound from "/sounds/rightblink.mp3";
 import SegmentedProgress from "./SegmentedProgress";
 
 const COMMANDS = [
     { text: "眨一次", type: "blink", count: 1, audio: blink1Sound },
     { text: "眨两次", type: "blink", count: 2, audio: blink2Sound },
+    { text: "左眼眨", type: "left_blink", count: 1, audio: leftBlinkSound },
+    { text: "右眼眨", type: "right_blink", count: 1, audio: rightBlinkSound },
     { text: "闭眼", type: "state", target: "closed", audio: closeSound },
     { text: "睁眼", type: "state", target: "open", audio: openSound },
 ];
@@ -35,6 +39,9 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
     const timerRef = useRef(null);
     const blinkTimestamps = useRef([]);
     const stateTimestamps = useRef([]);
+    // 添加左眼和右眼眨眼的时间戳记录
+    const leftBlinkTimestamps = useRef([]);
+    const rightBlinkTimestamps = useRef([]);
 
     // 任务规则
     const generateRandomTasks = () => {
@@ -58,10 +65,10 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                 );
             }
 
-            // 规则3: 闭眼任务后不接眨眼任务
+            // 规则3: 闭眼任务后不接眨眼任务（包括左眼和右眼）
             if (lastTaskType === "closed") {
                 availableCommands = availableCommands.filter(
-                    (cmd) => cmd.type !== "blink"
+                    (cmd) => cmd.type !== "blink" && cmd.type !== "left_blink" && cmd.type !== "right_blink"
                 );
             }
 
@@ -76,7 +83,7 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
             lastTaskType =
                 selectedCommand.type === "state"
                     ? selectedCommand.target
-                    : "blink";
+                    : selectedCommand.type; // 更新为具体的类型
         }
 
         return tasks;
@@ -96,6 +103,23 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                 (t) => now - t <= 10000
             );
             blinkTimestamps.current.push(now);
+        });
+
+        // 添加左眼和右眼眨眼的监听
+        socket.on("left_blink_event", () => {
+            const now = Date.now();
+            leftBlinkTimestamps.current = leftBlinkTimestamps.current.filter(
+                (t) => now - t <= 10000
+            );
+            leftBlinkTimestamps.current.push(now);
+        });
+
+        socket.on("right_blink_event", () => {
+            const now = Date.now();
+            rightBlinkTimestamps.current = rightBlinkTimestamps.current.filter(
+                (t) => now - t <= 10000
+            );
+            rightBlinkTimestamps.current.push(now);
         });
 
         socket.on("eye_state", ({ status }) => {
@@ -142,7 +166,7 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                 let success = false;
                 const now = Date.now();
 
-                // 判断是否眨眼成功
+                // 判断是否眨眼成功（双眼）
                 if (currentCommand.type === "blink") {
                     const recentBlinks = blinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
@@ -150,6 +174,32 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                     success = recentBlinks.length >= currentCommand.count;
 
                     // 如果是眨眼任务且已完成，立即标记为完成
+                    if (success) {
+                        taskCompleted = true;
+                        completeTask(success);
+                        return;
+                    }
+                }
+                // 判断是否左眼眨眼成功
+                else if (currentCommand.type === "left_blink") {
+                    const recentBlinks = leftBlinkTimestamps.current.filter(
+                        (t) => t >= startTime && t <= now
+                    );
+                    success = recentBlinks.length >= currentCommand.count;
+
+                    if (success) {
+                        taskCompleted = true;
+                        completeTask(success);
+                        return;
+                    }
+                }
+                // 判断是否右眼眨眼成功
+                else if (currentCommand.type === "right_blink") {
+                    const recentBlinks = rightBlinkTimestamps.current.filter(
+                        (t) => t >= startTime && t <= now
+                    );
+                    success = recentBlinks.length >= currentCommand.count;
+
                     if (success) {
                         taskCompleted = true;
                         completeTask(success);

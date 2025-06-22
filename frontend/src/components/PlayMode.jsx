@@ -83,9 +83,9 @@ const PlayMode = () => {
         });
 
         // 整体眨眼事件
-        // socket.on("blink_event", () => {
-        //     playDoubleBlink();
-        // });
+        socket.on("blink_event", () => {
+            playDoubleBlink();
+        });
 
         // 左眼眨眼事件
         socket.on("left_blink_event", () => {
@@ -110,17 +110,17 @@ const PlayMode = () => {
 
         // 处理双眼闭状态
         if (overallState === "closed") {
-            // playDoubleClosed();
-            // doubleClosedTimerRef.current = setInterval(
-            //     playDoubleClosed,
-            //     frequency
-            // );
-            // setMessage("双眼闭");
-            // setMessageColor("cyan");
-            // setStats((prev) => ({
-            //     ...prev,
-            //     doubleCloses: prev.doubleCloses + 1,
-            // }));
+            playDoubleClosed();
+            doubleClosedTimerRef.current = setInterval(
+                playDoubleClosed,
+                frequency
+            );
+            setMessage("双眼闭");
+            setMessageColor("cyan");
+            setStats((prev) => ({
+                ...prev,
+                doubleCloses: prev.doubleCloses + 1,
+            }));
         }
         // 处理左眼闭状态
         else if (leftEyeState === "closed") {
@@ -166,34 +166,34 @@ const PlayMode = () => {
     };
 
     // 播放各种声音的函数
-    // const playDoubleBlink = () => {
-    //     if (doubleBlinkAudioRef.current) {
-    //         doubleBlinkAudioRef.current.currentTime = 0;
-    //         doubleBlinkAudioRef.current.play();
-    //         setMessage("双眼眨");
-    //         setMessageColor("yellow");
-    //         setTimeout(() => {
-    //             if (
-    //                 overallState === "open" &&
-    //                 leftEyeState === "open" &&
-    //                 rightEyeState === "open"
-    //             ) {
-    //                 setMessage("");
-    //             }
-    //         }, 500);
-    //         setStats((prev) => ({
-    //             ...prev,
-    //             doubleBlinks: prev.doubleBlinks + 1,
-    //         }));
-    //     }
-    // };
+    const playDoubleBlink = () => {
+        if (doubleBlinkAudioRef.current) {
+            doubleBlinkAudioRef.current.currentTime = 0;
+            doubleBlinkAudioRef.current.play();
+            setMessage("双眼眨");
+            setMessageColor("yellow");
+            setTimeout(() => {
+                if (
+                    overallState === "open" &&
+                    leftEyeState === "open" &&
+                    rightEyeState === "open"
+                ) {
+                    setMessage("");
+                }
+            }, 500);
+            setStats((prev) => ({
+                ...prev,
+                doubleBlinks: prev.doubleBlinks + 1,
+            }));
+        }
+    };
 
-    // const playDoubleClosed = () => {
-    //     if (doubleClosedAudioRef.current) {
-    //         doubleClosedAudioRef.current.currentTime = 0;
-    //         doubleClosedAudioRef.current.play();
-    //     }
-    // };
+    const playDoubleClosed = () => {
+        if (doubleClosedAudioRef.current) {
+            doubleClosedAudioRef.current.currentTime = 0;
+            doubleClosedAudioRef.current.play();
+        }
+    };
 
     const playLeftBlink = () => {
         if (leftBlinkAudioRef.current) {
