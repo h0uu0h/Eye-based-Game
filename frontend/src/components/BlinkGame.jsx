@@ -13,7 +13,6 @@ import DataPanel from "./DataPanel";
 import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
-import BlinkMarker from "./BlinkMarker";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
@@ -327,12 +326,12 @@ const BlinkGame = () => {
                     value={mode}
                     className={styles.selectBox}
                     onChange={(e) => setMode(e.target.value)}>
-                    <option value="classic">校准模式</option>
-                    <option value="command">命令模式</option>
-                    <option value="play">演奏模式</option>
-                    <option value="music">音乐模式</option>
-                    <option value="control">控制模式</option>
-                    <option value="voice">播报模式</option>
+                    <option value="command">语音命令</option>
+                    <option value="voice">语音播报</option>
+                    <option value="classic">音效命令</option>
+                    <option value="play">音效播报</option>
+                    <option value="music">音乐命令</option>
+                    <option value="control">音乐控制</option>
                 </select>
             </div>
             <button
