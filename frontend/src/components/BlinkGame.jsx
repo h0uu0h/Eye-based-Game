@@ -10,6 +10,7 @@ import GameSummary from "./GameSummary";
 import CommandMode from "./CommandMode";
 import VoiceFeedbackMode from "./VoiceFeedbackMode";
 import DataPanel from "./DataPanel";
+import BlinkVisualization from "./BlinkVisualization";
 import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
@@ -21,10 +22,8 @@ const BlinkGame = () => {
     const capRef = useRef(0);
     const sendFrameIntervalRef = useRef(null);
     const [mode, setMode] = useState("classic");
-    // const [threshold, setThreshold] = useState(null);
     const [calibrated, setCalibrated] = useState(false);
     const socket = useRef(null);
-    const [blinkMarkers, setBlinkMarkers] = useState([]);
 
     /**************结算************* */
     const [summary, setSummary] = useState(null);
@@ -42,6 +41,7 @@ const BlinkGame = () => {
 
     /*************实验数据************ */
     const [showDataPanel, setShowDataPanel] = useState(false);
+    const [showPanel, setShowPanel] = useState(false);
     const [experimentData, setExperimentData] = useState({
         gameId: Date.now().toString(36) + Math.random().toString(36).substr(2),
         startTime: Date.now(),
@@ -57,6 +57,10 @@ const BlinkGame = () => {
         const handleKeyDown = (e) => {
             if (e.key === "h" || e.key === "H") {
                 setShowDataPanel((prev) => !prev);
+            }
+
+            if (e.key === "e" || e.key === "E") {
+                setShowPanel((prev) => !prev);
             }
         };
 
@@ -441,6 +445,18 @@ const BlinkGame = () => {
                     experimentData={experimentData}
                     setExperimentData={setExperimentData}
                 />
+            )}
+            {showPanel && (
+                <div
+                    style={{
+                        position: "absolute",
+                        top: "0",
+                        left: "5%",
+                        width: "90%",
+                        margin: "0 auto",
+                    }}>
+                    <BlinkVisualization />
+                </div>
             )}
         </div>
     );

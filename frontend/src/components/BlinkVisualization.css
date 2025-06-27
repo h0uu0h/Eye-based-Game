@@ -1,0 +1,69 @@
+/* 基础设置 */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f7f9fc;
+}
+
+/* 容器样式 */
+.container {
+    padding: 24px;
+    max-width: 1000px;
+    margin: auto;
+    color: #333;
+
+}
+
+/* 标题 */
+.title {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #222;
+}
+
+/* 图表容器 */
+.chart-wrapper {
+    height: 500px;
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* 表格样式 */
+.table-section {
+    margin-top: 32px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    text-align: center;
+}
+
+.data-table th {
+    background-color: #f0f0f0;
+    color: #555;
+}
+
+.data-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* 加载/空状态 */
+.loading,
+.empty {
+    text-align: center;
+    font-size: 1.2rem;
+    color: #888;
+    margin-top: 100px;
+}

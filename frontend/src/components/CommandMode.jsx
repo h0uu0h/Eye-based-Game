@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
@@ -10,7 +11,7 @@ import closeSound from "/sounds/cmd_close.mp3";
 import openSound from "/sounds/cmd_open.mp3";
 import leftBlinkSound from "/sounds/leftblink.mp3";
 import rightBlinkSound from "/sounds/rightblink.mp3";
-import SegmentedProgress from "./SegmentedProgress";
+import ProgressCircle from "./ProgressCircle";
 
 const COMMANDS = [
     { text: "眨一次", type: "blink", count: 1, audio: blink1Sound },
@@ -39,7 +40,6 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
     const timerRef = useRef(null);
     const blinkTimestamps = useRef([]);
     const stateTimestamps = useRef([]);
-    // 添加左眼和右眼眨眼的时间戳记录
     const leftBlinkTimestamps = useRef([]);
     const rightBlinkTimestamps = useRef([]);
 
@@ -68,26 +68,28 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
             // 规则3: 闭眼任务后不接眨眼任务（包括左眼和右眼）
             if (lastTaskType === "closed") {
                 availableCommands = availableCommands.filter(
-                    (cmd) => cmd.type !== "blink" && cmd.type !== "left_blink" && cmd.type !== "right_blink"
+                    (cmd) =>
+                        cmd.type !== "blink" &&
+                        cmd.type !== "left_blink" &&
+                        cmd.type !== "right_blink"
                 );
             }
 
-            // 随机选择一个符合条件的命令
             const randomIndex = Math.floor(
                 Math.random() * availableCommands.length
             );
             const selectedCommand = availableCommands[randomIndex];
             tasks.push(selectedCommand);
 
-            // 更新最后任务类型
             lastTaskType =
                 selectedCommand.type === "state"
                     ? selectedCommand.target
-                    : selectedCommand.type; // 更新为具体的类型
+                    : selectedCommand.type;
         }
 
         return tasks;
     };
+
     // 初始化任务序列
     useEffect(() => {
         setTaskSequence(generateRandomTasks());
@@ -105,7 +107,6 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
             blinkTimestamps.current.push(now);
         });
 
-        // 添加左眼和右眼眨眼的监听
         socket.on("left_blink_event", () => {
             const now = Date.now();
             leftBlinkTimestamps.current = leftBlinkTimestamps.current.filter(
@@ -166,22 +167,18 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                 let success = false;
                 const now = Date.now();
 
-                // 判断是否眨眼成功（双眼）
                 if (currentCommand.type === "blink") {
                     const recentBlinks = blinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
                     );
                     success = recentBlinks.length >= currentCommand.count;
 
-                    // 如果是眨眼任务且已完成，立即标记为完成
                     if (success) {
                         taskCompleted = true;
                         completeTask(success);
                         return;
                     }
-                }
-                // 判断是否左眼眨眼成功
-                else if (currentCommand.type === "left_blink") {
+                } else if (currentCommand.type === "left_blink") {
                     const recentBlinks = leftBlinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
                     );
@@ -192,9 +189,7 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                         completeTask(success);
                         return;
                     }
-                }
-                // 判断是否右眼眨眼成功
-                else if (currentCommand.type === "right_blink") {
+                } else if (currentCommand.type === "right_blink") {
                     const recentBlinks = rightBlinkTimestamps.current.filter(
                         (t) => t >= startTime && t <= now
                     );
@@ -205,9 +200,7 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                         completeTask(success);
                         return;
                     }
-                }
-                // 判断是否持续达到状态
-                else if (currentCommand.type === "state") {
+                } else if (currentCommand.type === "state") {
                     const events = [
                         initialState,
                         ...stateTimestamps.current.filter(
@@ -233,7 +226,6 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
 
                     success = duration >= 3000;
 
-                    // 状态任务需要等待足够时间
                     if (success) {
                         taskCompleted = true;
                         completeTask(success);
@@ -241,7 +233,6 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                     }
                 }
 
-                // 检查是否超时
                 if (now - startTime >= TOTAL_TIME) {
                     taskCompleted = true;
                     completeTask(false);
@@ -262,10 +253,8 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
                     setTaskStatus("Miss!");
                 }
 
-                // 更新进度为100%
                 setProgress(1);
 
-                // 任务完成后延时1秒开始下一个任务
                 setTimeout(() => {
                     setCurrentTask(currentTask + 1);
                     setProgress(0);
@@ -348,14 +337,79 @@ const CommandMode = ({ onGameEnd, totalTasks = 15 }) => {
 
     return (
         <>
-            <SegmentedProgress
-                currentTask={currentTask}
-                totalTasks={totalTasks}
-                taskInfo={currentTaskInfo}
-                taskStatus={taskStatus}
-                progress={progress}
-                taskResults={taskResults}
-            />
+            <div
+                style={{
+                    position: "absolute",
+                    top: "25%",
+                    left: "14%",
+                    transform: "translateY(-50%)",
+                    color: "white",
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    zIndex: 20,
+                    textShadow: "0 0 5px black",
+                    transition: "opacity 0.3s",
+                    pointerEvents: "none",
+                }}>
+                {currentTaskInfo.text}
+                {taskStatus && (
+                    <div
+                        style={{
+                            fontSize: "24px",
+                            color:
+                                taskStatus === "Success!" ? "cyan" : "orange",
+                            marginTop: "10px",
+                        }}>
+                        {taskStatus === "Success!" ? "成功！" : "失败！"}
+                    </div>
+                )}
+            </div>
+
+            <div
+                style={{
+                    position: "absolute",
+                    top: "28%",
+                    right: "10%",
+                    transform: "translate(-50%, -50%)",
+                    zIndex: 10,
+                }}>
+                <ProgressCircle
+                    progress={progress}
+                    size={80}
+                    strokeWidth={10}
+                    color={taskStatus === "Miss!" ? "orange" : "cyan"}
+                />
+            </div>
+            <div
+                style={{
+                    position: "absolute",
+                    bottom: "20px",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    color: "white",
+                    fontSize: "18px",
+                    fontWeight: "bold",
+                }}>
+                任务 {Math.min(currentTask + 1, totalTasks)} / {totalTasks}
+            </div>
+
+            <div
+                style={{
+                    position: "absolute",
+                    bottom: "60px",
+                    left: "10px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                }}>
+                <div style={{ color: "white", fontSize: "16px" }}>
+                    成功: {taskSuccessRef.current}
+                </div>
+                <div style={{ color: "white", fontSize: "16px" }}>
+                    失败: {taskTotalRef.current - taskSuccessRef.current}
+                </div>
+            </div>
+
             <audio ref={commandAudioRef} preload="auto" />
             <audio ref={missAudioRef} src={missSound} preload="auto" />
             <audio ref={successAudioRef} src={blinkSound} preload="auto" />

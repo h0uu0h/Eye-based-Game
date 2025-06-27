@@ -43,7 +43,7 @@ const ClassicMode = ({ onGameEnd }) => {
 
 
             // 显示 Blink!
-            setMessage("Blink!");
+            setMessage("眨了一下!");
             setMessageColor("cyan");
             setTimeout(() => setMessage(""), 500);
 
@@ -120,7 +120,7 @@ const ClassicMode = ({ onGameEnd }) => {
             taskSucceededRef.current = false;
 
             // 显示“Blink now!” 提示
-            setMessage("Blink now!");
+            setMessage("眨眼!");
             setMessageColor("yellow");
 
             // 任务开始播放音效
@@ -148,7 +148,7 @@ const ClassicMode = ({ onGameEnd }) => {
                         });
                         missAudioRef.current?.play();
 
-                        setMessage("Miss!");
+                        setMessage("失败!");
                         setMessageColor("orange");
                         setTimeout(() => setMessage(""), 800);
                     }
@@ -224,7 +224,7 @@ const ClassicMode = ({ onGameEnd }) => {
                         fontSize: "18px",
                         fontWeight: "bold",
                     }}>
-                    Total Blinks: {blinkCount}
+                    总眨眼: {blinkCount}
                 </div>
 
                 {/* 得分 */}
@@ -234,7 +234,7 @@ const ClassicMode = ({ onGameEnd }) => {
                         fontSize: "18px",
                         fontWeight: "bold",
                     }}>
-                    Score: {score}
+                    分数: {score}
                 </div>
 
                 {/* 错误次数 */}
@@ -244,7 +244,7 @@ const ClassicMode = ({ onGameEnd }) => {
                         fontSize: "18px",
                         fontWeight: "bold",
                     }}>
-                    Misses: {missCount}
+                    失败: {missCount}
                 </div>
             </div>
         </>
