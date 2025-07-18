@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { io } from "socket.io-client";
-import BlinkMarker from "./BlinkMarker";
+import BlinkMarker from "../BlinkMarker";
 
 // 导入音频文件
 import fbBlink from "/sounds/fb_blink.mp3";

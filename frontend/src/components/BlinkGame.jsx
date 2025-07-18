@@ -3,15 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import ClassicMode from "./ClassicMode";
-import MusicMode from "./MusicMode";
 import styles from "./BlinkGame.module.css";
-import ControlMode from "./ControlMode";
+import JumpMode from "./JumpMode";
 import GameSummary from "./GameSummary";
-import CommandMode from "./CommandMode";
-import VoiceFeedbackMode from "./VoiceFeedbackMode";
-import DataPanel from "./DataPanel";
-import BlinkVisualization from "./BlinkVisualization";
-import PlayMode from "./PlayMode";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
 
@@ -37,74 +31,6 @@ const BlinkGame = () => {
         if (!result) return;
         setSummary(result); // 弹出结算框
     };
-    /***************************** */
-
-    /*************实验数据************ */
-    const [showDataPanel, setShowDataPanel] = useState(false);
-    const [showPanel, setShowPanel] = useState(false);
-    const [experimentData, setExperimentData] = useState({
-        gameId: Date.now().toString(36) + Math.random().toString(36).substr(2),
-        startTime: Date.now(),
-        endTime: null,
-        mode: null,
-        frames: [],
-        events: [],
-        calibration: [],
-    });
-
-    // 添加键盘事件监听
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (e.key === "h" || e.key === "H") {
-                setShowDataPanel((prev) => !prev);
-            }
-
-            if (e.key === "e" || e.key === "E") {
-                setShowPanel((prev) => !prev);
-            }
-        };
-
-        window.addEventListener("keydown", handleKeyDown);
-        return () => {
-            window.removeEventListener("keydown", handleKeyDown);
-        };
-    }, []);
-
-    // 初始化实验数据
-    useEffect(() => {
-        if (gameStarted) {
-            setExperimentData({
-                gameId:
-                    Date.now().toString(36) +
-                    Math.random().toString(36).substr(2),
-                startTime: Date.now(),
-                endTime: null,
-                mode,
-                frames: [],
-                events: [],
-                calibration: [],
-            });
-        }
-    }, [gameStarted, mode]);
-
-    // 游戏结束时保存实验数据
-    useEffect(() => {
-        if (!gameStarted && experimentData.startTime) {
-            const completedData = {
-                ...experimentData,
-                endTime: Date.now(),
-            };
-
-            // 保存到本地存储
-            const experiments = JSON.parse(
-                localStorage.getItem("experimentData") || "[]"
-            );
-            experiments.push(completedData);
-            localStorage.setItem("experimentData", JSON.stringify(experiments));
-
-            setExperimentData(completedData);
-        }
-    }, [gameStarted]);
     /***************************** */
 
     // 游戏开始的逻辑
@@ -271,18 +197,10 @@ const BlinkGame = () => {
     // mode change
     const renderModeComponent = () => {
         switch (mode) {
-            case "command":
-                return <CommandMode onGameEnd={handleGameEnd} />;
-            case "music":
-                return <MusicMode onGameEnd={handleGameEnd} />;
-            case "control":
-                return <ControlMode onGameEnd={handleGameEnd} />;
-            case "play":
-                return <PlayMode onGameEnd={handleGameEnd} />;
             case "classic":
                 return <ClassicMode onGameEnd={handleGameEnd} />;
-            case "voice":
-                return <VoiceFeedbackMode />;
+            case "jump":
+                return <JumpMode onGameEnd={handleGameEnd} />;
             default:
                 return <ClassicMode onGameEnd={handleGameEnd} />;
         }
@@ -326,16 +244,12 @@ const BlinkGame = () => {
             </button>
             <div>
                 <select
-                    disabled={gameStarted}
+                    // disabled={gameStarted}
                     value={mode}
                     className={styles.selectBox}
                     onChange={(e) => setMode(e.target.value)}>
-                    <option value="command">语音命令</option>
-                    <option value="voice">语音播报</option>
-                    <option value="classic">音效命令</option>
-                    <option value="play">音效播报</option>
-                    <option value="music">音乐命令</option>
-                    <option value="control">音乐控制</option>
+                    <option value="classic">校准模式</option>
+                    <option value="jump">跳一跳</option>
                 </select>
             </div>
             <button
@@ -438,25 +352,6 @@ const BlinkGame = () => {
             )}
             {summary && (
                 <GameSummary data={summary} onClose={() => setSummary(null)} />
-            )}
-            {showDataPanel && (
-                <DataPanel
-                    onClose={() => setShowDataPanel(false)}
-                    experimentData={experimentData}
-                    setExperimentData={setExperimentData}
-                />
-            )}
-            {showPanel && (
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "0",
-                        left: "5%",
-                        width: "90%",
-                        margin: "0 auto",
-                    }}>
-                    <BlinkVisualization />
-                </div>
             )}
         </div>
     );

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ResponsiveLine } from "@nivo/line";
 import { FaFileExport, FaTimes, FaTrash } from "react-icons/fa";
 import { io } from "socket.io-client";
-import EarmWaveform from "./EarWaveform";
+import EarmWaveform from "../EarWaveform";
 import "./DataPanel.css";
 
 const DataPanel = ({ onClose, experimentData, setExperimentData }) => {

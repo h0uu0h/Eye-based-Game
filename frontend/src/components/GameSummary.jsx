@@ -4,7 +4,6 @@ const GameSummary = ({ data, onClose }) => {
 
     const renderSummary = () => {
         const { mode } = data;
-
         if (mode === "classic") {
             const total = data.score + data.missCount;
             return (
@@ -28,13 +27,15 @@ const GameSummary = ({ data, onClose }) => {
             );
         }
 
-        if (mode === "music") {
+        // 在renderSummary函数中添加jump模式的结算
+        if (mode === "jump") {
             return (
                 <>
-                    <p>模式：节奏模式</p>
-                    <p>命中节奏次数：{data.notesHit}</p>
-                    <p>总节奏次数：{data.notesTotal}</p>
-                    <p>成功率：{(data.successRate * 100).toFixed(2)}%</p>
+                    <p>模式：踩云朵冒险</p>
+                    <p>尝试次数：{data.totalJumps}</p>
+                    <p>成功跳跃：{data.successfulJumps}</p>
+                    <p>总高度：{data.totalHeight.toFixed(1)}米</p>
+                    {data.achievement && <p>🎖️ 成就：{data.achievement}</p>}
                 </>
             );
         }
