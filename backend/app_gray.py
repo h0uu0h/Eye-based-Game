@@ -1,15 +1,17 @@
+import eventlet
 from flask import Flask, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
 import cv2
 import numpy as np
-import base64
 from io import BytesIO
 from PIL import Image
 from math import sqrt
-import eventlet
-import eventlet.green.threading as threading
-import time  # Import time module for duration calculation
+import time
+import json
+import os
+import uuid
+from datetime import datetime
 
 eventlet.monkey_patch()
 
@@ -24,12 +26,13 @@ mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(
     static_image_mode=False,
     max_num_faces=1,
-    refine_landmarks=True,  # Use more refined face mesh
+    refine_landmarks=True,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.5,
 )
 mp_drawing = mp.solutions.drawing_utils
 
+# 眼睛关键点索引
 RIGHT_EYE = [33, 160, 158, 133, 153, 144]
 LEFT_EYE = [362, 385, 387, 263, 373, 380]
 MOUTH_OUTER = [
@@ -80,69 +83,141 @@ MOUTH_INNER = [
 
 class BlinkDetector:
     def __init__(self):
-        self.blink_counter = 0  # Used to count frames eyes are closed
-        self.total_blinks = 0  # Total blinks for game logic
-        self.current_eye_state = "open"  # Overall eye state (open/closed)
+        # 眨眼检测相关变量
         self.calibrating = True
-        self.ratios = []  # For calibration
-        self.min_ratio = float("inf")  # Min EAR during calibration (fully closed)
-        self.max_ratio = float("-inf")  # Max EAR during calibration (fully open)
-        self.threshold = 0.3  # Blink threshold (calculated during calibration)
+        self.ratios = []
+        self.min_ratio = float("inf")
+        self.max_ratio = float("-inf")
+        self.threshold = 0.3
 
-        # New variables for detailed blink tracking
-        self.closed_start_time = None  # Timestamp when eyes start closing
-        self.current_blink_min_ear_during_closure = float(
-            "inf"
-        )  # Lowest EAR observed during current closure
-        # Factor to determine partial blink: if min_ear during blink is > min_ratio + (threshold - min_ratio) * this_factor, it's partial.
-        # This means if the eye doesn't close sufficiently towards min_ratio.
-        self.partial_blink_ear_threshold_factor = 0.5  # Tunable: 0.5 means if min_ear is in upper half of closed range, it's partial.
+        # 眨眼状态跟踪
+        self.current_eye_state = "open"
+        self.closed_start_time = None
+        self.current_blink_min_ear = float("inf")
+        self.blink_counter = 0
+        self.total_blinks = 0
 
-        # Add CLAHE for image contrast enhancement
+        # 新增左右眼检测
+        self.left_blink_counter = 0
+        self.right_blink_counter = 0
+        self.left_total_blinks = 0
+        self.right_total_blinks = 0
+        self.left_eye_state = "open"
+        self.right_eye_state = "open"
+
+        # 数据记录
+        self.game_active = False
+        self.game_id = None
+        self.data_dir = "blink_data"
+        self.blink_records = []
+
+        # 创建数据目录
+        os.makedirs(self.data_dir, exist_ok=True)
+
+        # 图像增强
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
 
-    def _blink_ratio(self, landmarks, eye_points):
-        """Calculates the Eye Aspect Ratio (EAR) for a given eye."""
+    def start_game(self, game_type):  # 添加 game_type 参数
+        """开始新游戏会话"""
+        self.game_active = True
+        self.game_id = str(uuid.uuid4())
+        self.game_type = game_type  # 记录游戏类型
+        self.start_time = datetime.now()  # 记录游戏开始时间
+        self.blink_records = []
+        self.total_blinks = 0
+        self.left_total_blinks = 0
+        self.right_total_blinks = 0
+        print(f"游戏开始: {self.game_id}, 模式: {game_type}")
 
-        def euclidean(p1, p2):
-            x1, y1, z1 = p1
-            x2, y2, z2 = p2
-            return sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+    def end_game(self):
+        """结束游戏并保存数据"""
+        if not self.game_active:
+            return None
 
-        # Calculate vertical distances
-        ver1 = euclidean(landmarks[eye_points[1]], landmarks[eye_points[5]])
-        ver2 = euclidean(landmarks[eye_points[2]], landmarks[eye_points[4]])
-        ver = (ver1 + ver2) / 2.0
+        self.game_active = False
+        end_time = datetime.now()  # 记录结束时间
 
-        # Calculate horizontal distance
-        hor = euclidean(landmarks[eye_points[0]], landmarks[eye_points[3]])
+        # 结算时统一处理眨眼类型和时长
+        processed_blinks = []
+        prev_time = None
+        for rec in self.blink_records:
+            ts = datetime.fromisoformat(rec["timestamp"])
+            duration = (ts - prev_time).total_seconds() if prev_time else 0
+            # 类型判断逻辑（可根据实际需求调整阈值）
+            blink_type = (
+                "full"
+                if rec["min_ear"]
+                < (self.min_ratio + (self.threshold - self.min_ratio) * 0.5)
+                else "partial"
+            )
+            processed_blinks.append(
+                {
+                    **rec,
+                    "duration": round(duration, 3),
+                    "type": blink_type,
+                }
+            )
+            prev_time = ts
 
-        return ver / hor if hor != 0 else 0
+        # 准备数据
+        game_data = {
+            "game_id": self.game_id,
+            "game_type": self.game_type,  # 添加游戏类型
+            "start_time": self.start_time.isoformat(),  # 添加开始时间
+            "end_time": end_time.isoformat(),  # 添加结束时间
+            "total_blinks": self.total_blinks,
+            "left_total_blinks": self.left_total_blinks,
+            "right_total_blinks": self.right_total_blinks,
+            "blink_details": processed_blinks,  # 结算后详细信息
+        }
+
+        # 保存到文件
+        filename = os.path.join(self.data_dir, f"blink_{self.game_id}.json")
+        with open(filename, "w") as f:
+            json.dump(game_data, f, indent=2)
+
+        print(f"数据已保存到: {filename}")
+        return game_data  # 返回完整数据
+
+    def _calculate_ear(self, landmarks, eye_points):
+        """计算眼睛纵横比(EAR)"""
+
+        def distance(p1, p2):
+            return sqrt(
+                (p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2 + (p2[2] - p1[2]) ** 2
+            )
+
+        # 垂直距离
+        ver1 = distance(landmarks[eye_points[1]], landmarks[eye_points[5]])
+        ver2 = distance(landmarks[eye_points[2]], landmarks[eye_points[4]])
+
+        # 水平距离
+        hor = distance(landmarks[eye_points[0]], landmarks[eye_points[3]])
+
+        return (ver1 + ver2) / (2.0 * hor) if hor != 0 else 0
 
     def process_frame(self, frame):
-        """Processes a single video frame to detect blinks and eye states."""
-        # Convert to grayscale and apply CLAHE for contrast enhancement
+        """处理视频帧"""
+        # 图像预处理
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = self.clahe.apply(gray)
-
-        # Convert enhanced grayscale to 3-channel image for MediaPipe
-        gray_3ch = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-        rgb = cv2.cvtColor(gray_3ch, cv2.COLOR_BGR2RGB)
+        rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
 
         results = face_mesh.process(rgb)
         if not results.multi_face_landmarks:
-            # If no face detected, reset states to avoid false positives
             self.current_eye_state = "open"
             self.closed_start_time = None
             self.current_blink_min_ear_during_closure = float("inf")
             self.blink_counter = 0
+            self.left_eye_state = "open"
+            self.right_eye_state = "open"
             return
 
         for face_landmarks in results.multi_face_landmarks:
             landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
-            left_ratio = self._blink_ratio(landmarks, LEFT_EYE)
-            right_ratio = self._blink_ratio(landmarks, RIGHT_EYE)
-            avg_ratio = (left_ratio + right_ratio) / 2
+            left_ear = self._calculate_ear(landmarks, LEFT_EYE)
+            right_ear = self._calculate_ear(landmarks, RIGHT_EYE)
+            avg_ear = (left_ear + right_ear) / 2
 
             # Extract key points for visualization (eye and mouth landmarks)
             left_eye_points = [landmarks[i] for i in LEFT_EYE]
@@ -163,13 +238,13 @@ class BlinkDetector:
                 )
             )
 
-            # Calibration logic
+            # 校准阶段
             if self.calibrating:
-                self.min_ratio = min(self.min_ratio, avg_ratio)
-                self.max_ratio = max(self.max_ratio, avg_ratio)
-                self.ratios.append(avg_ratio)
-                if len(self.ratios) >= 100:  # Calibrate after 100 frames
-                    # Calculate threshold: 40% between min (closed) and max (open)
+                self.min_ratio = min(self.min_ratio, avg_ear)
+                self.max_ratio = max(self.max_ratio, avg_ear)
+                self.ratios.append(avg_ear)
+
+                if len(self.ratios) >= 100:
                     self.threshold = (
                         self.min_ratio + (self.max_ratio - self.min_ratio) * 0.4
                     )
@@ -179,90 +254,99 @@ class BlinkDetector:
                             "calibrated", {"threshold": self.threshold}
                         )
                     )
-                return  # Exit early during calibration
+                continue
 
-            # Main blink detection and detailed data collection
-            if avg_ratio < self.threshold:  # Eyes are considered closed
+            # 整体眨眼检测
+            if left_ear < self.threshold and right_ear < self.threshold:  # 眼睛闭合
                 if self.current_eye_state != "closed":
                     self.current_eye_state = "closed"
-                    self.closed_start_time = time.time()  # Record start of closure
-                    self.current_blink_min_ear_during_closure = (
-                        avg_ratio  # Reset min EAR for this closure
-                    )
+                    self.closed_start_time = time.time()
+                    self.current_blink_min_ear = avg_ear
                     socketio.start_background_task(
                         lambda: socketio.emit("eye_state", {"status": "closed"})
                     )
-                else:  # Still closed, update min EAR
-                    self.current_blink_min_ear_during_closure = min(
-                        self.current_blink_min_ear_during_closure, avg_ratio
+                else:
+                    self.current_blink_min_ear = min(
+                        self.current_blink_min_ear, avg_ear
                     )
-                self.blink_counter += 1  # Increment counter while eyes are closed
-
-            else:  # Eyes are considered open
-                if (
-                    self.current_eye_state == "closed"
-                ):  # Just opened from a closed state (blink completed)
+                self.blink_counter += 1
+            else:  # 眼睛睁开
+                if self.current_eye_state == "closed":  # 眨眼结束
                     self.current_eye_state = "open"
                     socketio.start_background_task(
                         lambda: socketio.emit("eye_state", {"status": "open"})
                     )
 
-                    # Only process if it was a valid blink (closed for a minimum duration)
                     if (
-                        self.blink_counter > 2
-                    ):  # Minimum frames closed to be considered a valid blink
-                        closed_duration = (
-                            (time.time() - self.closed_start_time)
-                            if self.closed_start_time
-                            else 0
-                        )
-                        blink_min_ear = self.current_blink_min_ear_during_closure
-
-                        # Classify blink type:
-                        # If the min_ear during the blink is significantly higher than the fully closed min_ratio, it's partial.
-                        blink_type = "full"
-                        if (
-                            blink_min_ear
-                            > self.min_ratio
-                            + (self.threshold - self.min_ratio)
-                            * self.partial_blink_ear_threshold_factor
-                        ):
-                            blink_type = "partial"
-
-                        self.total_blinks += 1  # Increment total blinks for game logic
-
-                        # Emit general blink event (for ClassicMode and general blink count)
+                        self.blink_counter > 2 and self.closed_start_time is not None
+                    ):  # 有效眨眼
+                        # 只记录最小信息，类型和duration结算时再处理
+                        if self.game_active:
+                            self.blink_records.append(
+                                {
+                                    "timestamp": datetime.now().isoformat(),
+                                    "min_ear": round(self.current_blink_min_ear, 4),
+                                    "avg_ear": round(avg_ear, 4),
+                                }
+                            )
+                        self.total_blinks += 1
                         socketio.start_background_task(
                             lambda: socketio.emit(
                                 "blink_event", {"total": self.total_blinks}
                             )
                         )
 
-                        # Emit detailed blink event (for experimental data)
-                        socketio.start_background_task(
-                            lambda: socketio.emit(
-                                "detailed_blink_event",
-                                {
-                                    "type": blink_type,
-                                    "duration": closed_duration,  # in seconds
-                                    "min_ear": blink_min_ear,
-                                },
-                            )
-                        )
-                    self.blink_counter = (
-                        0  # Reset blink counter after a blink is processed
-                    )
-                else:  # Eyes are still open, ensure state is open and reset blink counter
-                    if self.current_eye_state != "open":
-                        self.current_eye_state = "open"
-                        socketio.start_background_task(
-                            lambda: socketio.emit("eye_state", {"status": "open"})
-                        )
-                    self.blink_counter = 0  # Reset counter if eyes are open
+                    self.blink_counter = 0
+                    self.current_blink_min_ear = float("inf")
 
-            # Emit EAR value for general tracking/visualization
+            # 左眼眨眼检测
+            if left_ear < self.threshold and right_ear > self.threshold:
+                self.left_blink_counter += 1
+                if self.left_eye_state != "closed":
+                    self.left_eye_state = "closed"
+                    socketio.start_background_task(
+                        lambda: socketio.emit("left_eye_state", {"status": "closed"})
+                    )
+            else:
+                if self.left_blink_counter > 2 and self.left_blink_counter < 14:
+                    self.left_total_blinks += 1
+                    socketio.start_background_task(
+                        lambda: socketio.emit(
+                            "left_blink_event", {"total": self.left_total_blinks}
+                        )
+                    )
+                self.left_blink_counter = 0
+                if self.left_eye_state != "open":
+                    self.left_eye_state = "open"
+                    socketio.start_background_task(
+                        lambda: socketio.emit("left_eye_state", {"status": "open"})
+                    )
+
+            # 右眼眨眼检测
+            if right_ear < self.threshold and left_ear > self.threshold:
+                self.right_blink_counter += 1
+                if self.right_eye_state != "closed":
+                    self.right_eye_state = "closed"
+                    socketio.start_background_task(
+                        lambda: socketio.emit("right_eye_state", {"status": "closed"})
+                    )
+            else:
+                if self.right_blink_counter > 2 and self.right_blink_counter < 14:
+                    self.right_total_blinks += 1
+                    socketio.start_background_task(
+                        lambda: socketio.emit(
+                            "right_blink_event", {"total": self.right_total_blinks}
+                        )
+                    )
+                self.right_blink_counter = 0
+                if self.right_eye_state != "open":
+                    self.right_eye_state = "open"
+                    socketio.start_background_task(
+                        lambda: socketio.emit("right_eye_state", {"status": "open"})
+                    )
+
             socketio.start_background_task(
-                lambda: socketio.emit("ear_value", {"value": avg_ratio})
+                lambda: socketio.emit("ear_value", {"value": avg_ear})
             )
 
 
@@ -286,15 +370,31 @@ def handle_frame(data):
 @app.route("/start_calibration", methods=["POST"])
 def start_calibration():
     detector.calibrating = True
-    detector.ratios.clear()
+    detector.ratios = []
     detector.min_ratio = float("inf")
     detector.max_ratio = float("-inf")
     return {"status": "calibrating"}
 
 
-@app.route("/")
-def index():
-    return {"status": "backend is live"}
+@socketio.on("start_game")
+def handle_start_game(data):  # 添加 data 参数
+    game_type = data.get("game_type", "classic")  # 获取游戏类型
+    detector.start_game(game_type)
+    return {
+        "status": "game_started",
+        "game_id": detector.game_id,
+        "game_type": game_type,
+    }
+
+
+# 修改 handle_end_game 事件处理器
+@socketio.on("end_game")
+def handle_end_game():
+    game_data = detector.end_game()
+    if game_data is None:
+        return {"status": "error", "message": "no active game"}
+
+    return {"status": "game_ended", "game_data": game_data}  # 返回完整游戏数据
 
 
 if __name__ == "__main__":

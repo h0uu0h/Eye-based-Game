@@ -8,7 +8,7 @@ import successSound from "/sounds/jump/success.mp3";
 import failSound from "/sounds/jump/fail.mp3";
 import backgroundSound from "/sounds/jump/background.mp3";
 
-const JumpMode = ({ onGameEnd }) => {
+const JumpMode = ({ onGameEnd, shouldEnd }) => {
     const gameStatsRef = useRef({
         totalJumps: 0,
         successfulJumps: 0,
@@ -42,6 +42,7 @@ const JumpMode = ({ onGameEnd }) => {
     const successAudioRef = useRef(null);
     const failAudioRef = useRef(null);
     const backgroundAudioRef = useRef(null);
+
     // 使用浏览器语音播报
     const speak = (text) => {
         if (!window.speechSynthesis) return;
@@ -109,6 +110,14 @@ const JumpMode = ({ onGameEnd }) => {
         };
     }, [uiState.gameState]);
 
+    // 监听shouldEnd变化
+    useEffect(() => {
+        if (shouldEnd && uiState.gameState === "playing") {
+            // 如果游戏正在进行中，强制结束游戏
+            endGame();
+        }
+    }, [shouldEnd]);
+
     // 开始游戏
     const startGame = () => {
         // 重置所有数据
@@ -125,6 +134,7 @@ const JumpMode = ({ onGameEnd }) => {
             power: 0,
             jumpResults: [],
             blinkCount: 0,
+            difficulty: uiState.difficulty,
         });
 
         blinkCountRef.current = 0;
@@ -142,11 +152,12 @@ const JumpMode = ({ onGameEnd }) => {
         // 开始倒计时
         countdownTimerRef.current = setInterval(() => {
             setUiState((prev) => {
-                if (prev.countdown <= 1) {
-                    endGame();
+                const newCountdown = prev.countdown - 1;
+                if (newCountdown <= 0) {
+                    endGame(); // 倒计时结束时调用endGame
                     return { ...prev, countdown: 0 };
                 }
-                return { ...prev, countdown: prev.countdown - 1 };
+                return { ...prev, countdown: newCountdown };
             });
         }, 1000);
     };
@@ -258,41 +269,17 @@ const JumpMode = ({ onGameEnd }) => {
         setUiState((prev) => ({ ...prev, gameState: "ended" }));
 
         // 准备结算数据
-        setTimeout(() => {
-            const finalStats = gameStatsRef.current;
-            const achievement = finalStats.totalHeight > 30 ? "踩云朵达人" : "";
+        const finalStats = gameStatsRef.current;
+        const achievement = finalStats.totalHeight > 30 ? "踩云朵达人" : "";
 
-            // 保存到localStorage
-            const history = JSON.parse(
-                localStorage.getItem("blinkGameHistory") || "[]"
-            );
-
-            const gameData = {
-                mode: "jump",
-                timestamp: Date.now(),
-                ...finalStats,
-                achievement,
-            };
-
-            history.push(gameData);
-            localStorage.setItem("blinkGameHistory", JSON.stringify(history));
-
-            // 计算排名
-            const jumpGames = history
-                .filter((g) => g.mode === "jump")
-                .sort((a, b) => b.totalHeight - a.totalHeight);
-
-            const rank =
-                jumpGames.findIndex((g) => g.timestamp === gameData.timestamp) +
-                1;
-
-            // 触发结算
-            onGameEnd({
-                ...gameData,
-                rank,
-                totalGames: jumpGames.length,
-            });
-        }, 1500);
+        // 触发结算 - 不再直接保存到localStorage
+        // 数据将通过onGameEnd传递给父组件，由父组件统一保存
+        onGameEnd({
+            mode: "jump",
+            timestamp: Date.now(),
+            ...finalStats,
+            achievement,
+        });
     }, [onGameEnd]);
 
     // 组件卸载时清理

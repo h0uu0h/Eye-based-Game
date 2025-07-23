@@ -2,8 +2,9 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
-import ClassicMode from "./ClassicMode";
 import styles from "./BlinkGame.module.css";
+import ClassicMode from "./ClassicMode";
+import MazeRescueMode from "./MazeRescueMode";
 import JumpMode from "./JumpMode";
 import GameSummary from "./GameSummary";
 import outputIcon from "/icon/output.svg";
@@ -17,19 +18,80 @@ const BlinkGame = () => {
     const sendFrameIntervalRef = useRef(null);
     const [mode, setMode] = useState("classic");
     const [calibrated, setCalibrated] = useState(false);
+    const [currentGameMode, setCurrentGameMode] = useState(mode);
     const socket = useRef(null);
 
     /**************结算************* */
+    const resultRef = useRef(null);
     const [summary, setSummary] = useState(null);
     const [gameStarted, setGameStarted] = useState(false);
+    const [gameEnded, setGameEnded] = useState(false);
 
     const handleToggleGame = () => {
-        setGameStarted((prev) => !prev);
+        if (!gameStarted) {
+            // 开始游戏
+            setCurrentGameMode(mode); // 保存当前游戏模式
+            setGameStarted(true);
+            setGameEnded(false); // 重置结束状态
+        } else {
+            // 结束游戏 - 先标记游戏结束，等待游戏模式组件处理
+            setGameEnded(true);
+        }
     };
 
+    // 当游戏结束标记被设置时，处理游戏结束
+    useEffect(() => {
+        if (gameEnded && gameStarted) {
+            console.log("游戏结束请求已发出，等待游戏模式组件处理...");
+            // 这里不需要做任何事，等待游戏模式组件调用 handleGameEnd
+        }
+    }, [gameEnded, gameStarted]);
+
+    // 当游戏模式组件返回结果时处理
     const handleGameEnd = (result) => {
         if (!result) return;
+
+        console.log("收到游戏模式组件结果:", result);
+        resultRef.current = result;
         setSummary(result); // 弹出结算框
+
+        // 确保 socket 可用
+        if (!socket.current) {
+            console.error("Socket 不可用");
+            return;
+        }
+
+        // 发送结束游戏请求到后端
+        socket.current.emit("end_game", (response) => {
+            if (response?.status === "game_ended") {
+                console.log("收到后端游戏数据:", response.game_data);
+
+                // 合并前后端数据
+                const fullRecord = {
+                    ...resultRef.current,
+                    ...response.game_data,
+                };
+
+                console.log("完整游戏记录:", fullRecord);
+
+                // 保存到本地历史
+                const history = JSON.parse(
+                    localStorage.getItem("blinkGameHistory") || "[]"
+                );
+                history.push(fullRecord);
+                localStorage.setItem(
+                    "blinkGameHistory",
+                    JSON.stringify(history)
+                );
+
+                // 更新摘要显示完整数据
+                setSummary(fullRecord);
+            }
+
+            // 关闭游戏
+            setGameStarted(false);
+            setGameEnded(false);
+        });
     };
     /***************************** */
 
@@ -84,7 +146,17 @@ const BlinkGame = () => {
                 setCalibrated(true);
                 localStorage.setItem("threshold", threshold);
             });
-
+            socket.current.emit(
+                "start_game",
+                { game_type: currentGameMode },
+                (response) => {
+                    if (response.status === "game_started") {
+                        console.log(
+                            `游戏已开始: ${response.game_id}, 模式: ${response.game_type}`
+                        );
+                    }
+                }
+            );
             // 发送帧
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
@@ -193,16 +265,46 @@ const BlinkGame = () => {
             }
         };
     }, [gameStarted]);
+    const handleExportHistory = () => {
+        const history = JSON.parse(
+            localStorage.getItem("blinkGameHistory") || "[]"
+        );
+        if (history.length === 0) {
+            alert("没有历史记录可导出！");
+            return;
+        }
 
+        // 创建更详细的历史数据
+        const exportData = {
+            meta: {
+                export_date: new Date().toISOString(),
+                total_games: history.length,
+            },
+            games: history,
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+            type: "application/json",
+        });
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `blink_game_history_${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
     // mode change
     const renderModeComponent = () => {
         switch (mode) {
             case "classic":
-                return <ClassicMode onGameEnd={handleGameEnd} />;
+                return <ClassicMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
             case "jump":
-                return <JumpMode onGameEnd={handleGameEnd} />;
+                return <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
+            case "maze":
+                return <MazeRescueMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
             default:
-                return <ClassicMode onGameEnd={handleGameEnd} />;
+                return <ClassicMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
         }
     };
 
@@ -215,24 +317,7 @@ const BlinkGame = () => {
             {!gameStarted && <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>}
             <button
                 disabled={gameStarted}
-                onClick={() => {
-                    const history = localStorage.getItem("blinkGameHistory");
-                    if (!history) {
-                        alert("没有历史记录可导出！");
-                        return;
-                    }
-                    const blob = new Blob([history], {
-                        type: "application/json",
-                    });
-                    const url = URL.createObjectURL(blob);
-
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `blink_game_history_${Date.now()}.json`;
-                    a.click();
-
-                    URL.revokeObjectURL(url); // 释放资源
-                }}
+                onClick={handleExportHistory}
                 className={styles.outputBtn}>
                 <img
                     src={outputIcon}
@@ -250,6 +335,7 @@ const BlinkGame = () => {
                     onChange={(e) => setMode(e.target.value)}>
                     <option value="classic">校准模式</option>
                     <option value="jump">跳一跳</option>
+                    <option value="maze">迷宫</option>
                 </select>
             </div>
             <button

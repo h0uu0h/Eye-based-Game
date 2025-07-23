@@ -16,17 +16,6 @@ const GameSummary = ({ data, onClose }) => {
             );
         }
 
-        if (mode === "command") {
-            return (
-                <>
-                    <p>模式：指令模式</p>
-                    <p>成功指令次数：{data.commandSuccess}</p>
-                    <p>总指令次数：{data.commandTotal}</p>
-                    <p>成功率：{(data.successRate * 100).toFixed(2)}%</p>
-                </>
-            );
-        }
-
         // 在renderSummary函数中添加jump模式的结算
         if (mode === "jump") {
             return (
@@ -39,7 +28,53 @@ const GameSummary = ({ data, onClose }) => {
                 </>
             );
         }
+        if (mode === "dice") {
+            // 骰子空间模式
+            return (
+                <>
+                    <p>模式：骰子空间</p>
+                    <p>
+                        总点数：{data.totalPoints} (目标: {data.minPoints})
+                    </p>
+                    <p>骰子点数：{data.dicePoints.join(", ")}</p>
+                    <p>
+                        眨眼次数：总{data.blinkCount}次 (左{data.leftBlinks}/右
+                        {data.rightBlinks})
+                    </p>
+                    <p>
+                        闭眼时长：{(data.closeEyeDuration / 1000).toFixed(2)}秒
+                    </p>
+                    <p>错误切换：{data.wrongSwitches}次</p>
+                    {data.isSuccess ? (
+                        <p>🎉 成功达成目标！</p>
+                    ) : (
+                        <p>❌ 未达成目标</p>
+                    )}
+                </>
+            );
+        }
 
+        if (mode === "maze") {
+            // 迷宫救援模式
+            return (
+                <>
+                    <p>模式：迷宫救援</p>
+                    <p>
+                        用时：{data.finalTime.toFixed(2)}秒 (奖励: -
+                        {(data.timeBonus / 1000).toFixed(2)}秒)
+                    </p>
+                    <p>
+                        眨眼次数：总{data.blinkCount}次 (左{data.leftBlinks}/右
+                        {data.rightBlinks})
+                    </p>
+                    <p>
+                        闭眼时长：{(data.closeEyeDuration / 1000).toFixed(2)}秒
+                    </p>
+                    <p>错误转向：{data.wrongTurns}次</p>
+                    {data.isSuccess ? <p>🎉 救援成功！</p> : <p>❌ 救援失败</p>}
+                </>
+            );
+        }
         return <p>未知模式</p>;
     };
 

@@ -6,8 +6,7 @@ import startSound from "/sounds/start.wav";
 import missSound from "/sounds/miss.wav";
 import ProgressCircle from "./ProgressCircle";
 
-// 经典模式组件
-const ClassicMode = ({ onGameEnd }) => {
+const ClassicMode = ({ onGameEnd, shouldEnd }) => {
     const audioRef = useRef(null); // 眨眼音效
     const startAudioRef = useRef(null); // 任务开始提示音
     const missAudioRef = useRef(null); // 错误提示音
@@ -27,20 +26,28 @@ const ClassicMode = ({ onGameEnd }) => {
     const blinkRef = useRef(0);
 
     const [progress, setProgress] = useState(0);
+    const socket = useRef(null);
+
+    // 监听shouldEnd变化
+    useEffect(() => {
+        if (shouldEnd) {
+            // 强制结束游戏
+            handleGameEnd();
+        }
+    }, [shouldEnd]);
 
     // 🔄 建立 socket 监听眨眼事件
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_SOCKET_URL, {
+        socket.current = io(import.meta.env.VITE_SOCKET_URL, {
             transports: ["websocket"],
             reconnectionAttempts: 3,
             autoConnect: true,
         });
 
         // 当服务器检测到眨眼事件
-        socket.on("blink_event", (data) => {
+        socket.current.on("blink_event", (data) => {
             setBlinkCount(data.total);
             blinkRef.current = data.total;
-
 
             // 显示 Blink!
             setMessage("眨了一下!");
@@ -61,55 +68,50 @@ const ClassicMode = ({ onGameEnd }) => {
             }
         });
 
-        return () => socket.disconnect(); // 清理连接
-    }, []);
-
-    // 📦 游戏结束时保存历史记录和统计
-    useEffect(() => {
         return () => {
-            if (!onGameEnd) return;
-
-            const score = scoreRef.current;
-            const missCount = missRef.current;
-            const total = score + missCount;
-            if (total === 0) return;
-
-            const successRate = score / total;
-            const playCount =
-                parseInt(localStorage.getItem("playCount") || "0", 10) + 1;
-            localStorage.setItem("playCount", playCount);
-
-            const history = JSON.parse(
-                localStorage.getItem("blinkGameHistory") || "[]"
-            );
-            const gameData = {
-                mode: "classic",
-                timestamp: Date.now(),
-                score,
-                missCount,
-                successRate,
-            };
-            history.push(gameData);
-            localStorage.setItem("blinkGameHistory", JSON.stringify(history));
-
-            // 计算当前排名
-            const rates = history
-                .filter((g) => g.mode === "classic")
-                .map((g) => g.successRate)
-                .sort((a, b) => b - a);
-            const rank = rates.findIndex((r) => r === successRate) + 1;
-
-            onGameEnd({
-                mode: "classic",
-                score,
-                missCount,
-                successRate,
-                playCount,
-                rank,
-                totalGames: rates.length,
-            });
+            if (socket.current) {
+                socket.current.disconnect();
+            }
         };
     }, []);
+
+    // 游戏结束处理
+    const handleGameEnd = () => {
+        const score = scoreRef.current;
+        const missCount = missRef.current;
+        const total = score + missCount;
+
+        if (total === 0) {
+            onGameEnd(null);
+            return;
+        }
+
+        const successRate = score / total;
+        const playCount =
+            parseInt(localStorage.getItem("playCount") || "0", 10) + 1;
+        localStorage.setItem("playCount", playCount.toString());
+
+        // 计算当前排名
+        const history = JSON.parse(
+            localStorage.getItem("blinkGameHistory") || "[]"
+        );
+        const rates = history
+            .filter((g) => g.mode === "classic")
+            .map((g) => g.successRate)
+            .sort((a, b) => b - a);
+        const rank = rates.findIndex((r) => r === successRate) + 1;
+
+        onGameEnd({
+            mode: "classic",
+            timestamp: Date.now(),
+            score,
+            missCount,
+            successRate,
+            playCount,
+            rank,
+            totalGames: rates.length,
+        });
+    };
 
     // ⏱️ 控制任务间隔触发眨眼检测
     useEffect(() => {
@@ -119,14 +121,14 @@ const ClassicMode = ({ onGameEnd }) => {
             taskActiveRef.current = true;
             taskSucceededRef.current = false;
 
-            // 显示“Blink now!” 提示
+            // 显示"眨眼!"提示
             setMessage("眨眼!");
             setMessageColor("yellow");
 
             // 任务开始播放音效
             startAudioRef.current?.play();
 
-            // 给 1 秒时间眨眼
+            // 给 2 秒时间眨眼
             const TOTAL_TIME = 2000;
             const startTime = Date.now();
 
@@ -153,7 +155,7 @@ const ClassicMode = ({ onGameEnd }) => {
                         setTimeout(() => setMessage(""), 800);
                     }
 
-                    setProgress(0); // ✅ 重置进度条
+                    setProgress(0); // 重置进度条
                     timer = setTimeout(
                         triggerTask,
                         3000 + Math.random() * 4000
@@ -165,10 +167,13 @@ const ClassicMode = ({ onGameEnd }) => {
         // 游戏启动后，2~5 秒内触发第一个任务
         timer = setTimeout(triggerTask, 2000 + Math.random() * 3000);
 
-        return () => clearTimeout(timer);
+        return () => {
+            clearTimeout(timer);
+            // 组件卸载时结束游戏
+            handleGameEnd();
+        };
     }, []);
 
-    // 🎨 UI 渲染 + 音效资源 + 数据展示
     return (
         <>
             <div
