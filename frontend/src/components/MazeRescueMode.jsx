@@ -18,7 +18,7 @@ import failSound from "/sounds/maze/fail.mp3";
 const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     // ================ 可配置参数 ================
     const config = {
-        closeEyeTime: { min: 3000, max: 5000 }, // 闭眼时间范围
+        closeEyeTime: [2000, 3000, 4000, 5000], // 闭眼时间范围
         blinkWindow: 3000, // 眨眼时间窗口
         timeReward: 1000, // 每次奖励时间
         turnSequence: ["right", "left", "right", "left"], // 转向顺序
@@ -167,8 +167,9 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
 
         // 随机时间后撞墙
         const wallTime =
-            config.closeEyeTime.min +
-            Math.random() * (config.closeEyeTime.max - config.closeEyeTime.min);
+            config.closeEyeTime[
+                Math.floor(Math.random() * config.closeEyeTime.length)
+            ];
 
         moveTimerRef.current = setTimeout(() => {
             wallAudioRef.current.play();
@@ -188,7 +189,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
 
         // 进入方向选择
         setGameState("direction");
-        speak("眨双眼多次获得方向");
+        speak("眨眼多次提示方向和奖励时间");
 
         // 1秒后开始眨眼窗口
         directionTimerRef.current = setTimeout(() => {
@@ -305,21 +306,6 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 return;
             }
 
-            // 方向选择
-            if (gameStateRef.current === "direction") {
-                const now = Date.now();
-                if (now - lastBlinkTimeRef.current < 300) return;
-                lastBlinkTimeRef.current = now;
-
-                const expectedDirection =
-                    config.turnSequence[currentStepRef.current];
-                if (data.type === expectedDirection) {
-                    handleCorrectTurn();
-                } else {
-                    handleWrongTurn();
-                }
-            }
-
             // 眨眼窗口
             if (gameStateRef.current === "blinkWindow") {
                 setBlinkInWindow((prev) => prev + 1);
@@ -373,7 +359,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                     config.turnSequence[currentStepRef.current];
                 if (expectedDirection === "left") {
                     handleCorrectTurn();
-                } else {
+                } else if (expectedDirection === "right") {
                     handleWrongTurn();
                 }
             }
@@ -405,7 +391,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                     config.turnSequence[currentStepRef.current];
                 if (expectedDirection === "right") {
                     handleCorrectTurn();
-                } else {
+                } else if (expectedDirection === "left") {
                     handleWrongTurn();
                 }
             }
@@ -482,88 +468,69 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: "rgba(0, 0, 0, 0.8)",
                 color: "white",
-                zIndex: 100,
-                padding: "20px",
                 textAlign: "center",
             }}>
             {/* 游戏标题 */}
-            <h1 style={{ fontSize: "2.5rem", marginBottom: "20px" }}>
-                迷宫救援
-            </h1>
+            <h1 style={{ marginBottom: "-0.5rem" }}>迷宫救援</h1>
+            <p style={{ color: "rgb(255,255,255,0.7)" }}>
+                根据语音提示完成迷宫救援任务
+            </p>
 
-            {/* 游戏状态显示 */}
-            <div style={{ fontSize: "1.5rem", marginBottom: "20px" }}>
-                {renderGameState()}
-            </div>
-
-            {/* 倒计时和统计信息 */}
-            <div
-                style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "10px",
-                    marginBottom: "30px",
-                    backgroundColor: "rgba(255, 255, 255, 0.1)",
-                    padding: "15px",
-                    borderRadius: "10px",
-                    width: "80%",
-                    maxWidth: "500px",
-                }}>
-                <div style={{ fontSize: "1.8rem", fontWeight: "bold" }}>
-                    剩余时间: {remainingTime}秒
+            {/* 等待开始界面（眨双眼两次） */}
+            {gameState === "intro" && (
+                <div>
+                    <p>
+                        闭双眼：向前移动
+                        <br />
+                        睁双眼：停止移动
+                        <br />
+                        左眨眼：左转
+                        <br />
+                        右眨眼：右转
+                    </p>
+                    <p
+                        style={{
+                            marginTop: "2rem",
+                            fontSize: "1rem",
+                            color: "pink",
+                        }}>
+                        开始游戏（眨双眼两次）
+                        <span style={{ color: "pink" }}>{blinkCount}/2</span>
+                    </p>
                 </div>
+            )}
 
-                <div
-                    style={{
-                        display: "flex",
-                        justifyContent: "space-around",
-                        width: "100%",
-                        marginTop: "10px",
-                    }}>
-                    <div>
-                        <div>当前步骤</div>
-                        <div style={{ fontSize: "1.5rem" }}>
-                            {currentStep + 1}/{config.turnSequence.length}
-                        </div>
-                    </div>
+            {/* 游戏进行中界面 */}
+            {gameState !== "intro" && gameState !== "ended" && (
+                <>
+                    <h1>{remainingTime}秒</h1>
+                    <p>
+                        闭双眼：向前移动
+                        <br />
+                        睁双眼：停止移动
+                        <br />
+                        左眨眼：左转
+                        <br />
+                        右眨眼：右转
+                    </p>
+                    <p
+                        style={{
+                            marginTop: "2rem",
+                            fontSize: "1rem",
+                            color: "pink",
+                        }}>
+                        {renderGameState()}
+                    </p>
+                </>
+            )}
 
-                    <div>
-                        <div>左眼眨眼</div>
-                        <div style={{ fontSize: "1.5rem" }}>{leftBlinks}</div>
-                    </div>
-
-                    <div>
-                        <div>右眼眨眼</div>
-                        <div style={{ fontSize: "1.5rem" }}>{rightBlinks}</div>
-                    </div>
-
-                    <div>
-                        <div>错误转向</div>
-                        <div style={{ fontSize: "1.5rem" }}>{wrongTurns}</div>
-                    </div>
+            {gameState === "ended" && (
+                <div>
+                    <h2>游戏结束!</h2>
+                    <p>正在生成结算信息...</p>
                 </div>
-            </div>
-
-            {/* 操作说明 */}
-            <div
-                style={{
-                    marginTop: "20px",
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                    padding: "15px",
-                    borderRadius: "8px",
-                    maxWidth: "600px",
-                }}>
-                <h3>操作说明</h3>
-                <ul style={{ textAlign: "left", marginTop: "10px" }}>
-                    <li>闭双眼：向前移动</li>
-                    <li>睁双眼：停止移动</li>
-                    <li>左眨眼：左转</li>
-                    <li>右眨眼：右转</li>
-                    <li>快速眨眼：获得时间奖励</li>
-                </ul>
-            </div>
+            )}
 
             {/* 隐藏的音效元素 */}
             <div style={{ display: "none" }}>

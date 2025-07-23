@@ -1,7 +1,6 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
-import ProgressCircle from "./ProgressCircle";
 import powerSound from "/sounds/jump/power.mp3";
 import jumpSound from "/sounds/jump/jump.mp3";
 import successSound from "/sounds/jump/success.mp3";
@@ -380,67 +379,6 @@ const JumpMode = ({ onGameEnd, shouldEnd }) => {
                         <br />
                         睁眼 → 跳跃
                     </p>
-
-                    <div
-                        style={{
-                            position: "absolute",
-                            right: "20px",
-                            top: "20px",
-                            marginBottom: "2rem",
-                        }}>
-                        <h2>
-                            当前云朵高度: {uiState.cloudHeight.toFixed(1)}米
-                        </h2>
-                    </div>
-
-                    {uiState.power > 0 && (
-                        <div
-                            style={{
-                                position: "absolute",
-                                right: "20px",
-                                top: "300px",
-                                margin: "1rem 0",
-                            }}>
-                            <ProgressCircle
-                                progress={uiState.power}
-                                size={120}
-                                strokeWidth={10}
-                                color="#4CAF50"
-                            />
-                            <p>蓄力中: {(uiState.power * 5).toFixed(1)}秒</p>
-                        </div>
-                    )}
-
-                    <div
-                        style={{
-                            position: "absolute",
-                            right: "20px",
-                            top: "50px",
-                            marginTop: "2rem",
-                            backgroundColor: "rgba(0,0,0,0.7)",
-                            padding: "1rem",
-                            borderRadius: "8px",
-                            maxHeight: "200px",
-                            overflowY: "auto",
-                        }}>
-                        <h3>跳跃记录</h3>
-                        {uiState.jumpResults
-                            .slice()
-                            .reverse()
-                            .map((result, index) => (
-                                <p
-                                    key={index}
-                                    style={{
-                                        color: result.success
-                                            ? "lime"
-                                            : "orange",
-                                    }}>
-                                    {result.power}米 →{" "}
-                                    {result.height.toFixed(1)}米:
-                                    {result.success ? "成功" : "失败"}
-                                </p>
-                            ))}
-                    </div>
                 </>
             )}
 

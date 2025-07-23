@@ -1,0 +1,137 @@
+{
+  "game_id": "e8ba3687-3d41-4610-899c-a8f1333ea541",
+  "game_type": "maze",
+  "start_time": "2025-07-23T16:00:16.508731",
+  "end_time": "2025-07-23T16:00:48.746323",
+  "total_blinks": 18,
+  "left_total_blinks": 1,
+  "right_total_blinks": 1,
+  "blink_details": [
+    {
+      "timestamp": "2025-07-23T16:00:17.792282",
+      "min_ear": 0.0989,
+      "avg_ear": 0.3003,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:18.432366",
+      "min_ear": 0.0816,
+      "avg_ear": 0.3799,
+      "duration": 0.64,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:22.414424",
+      "min_ear": 0.0985,
+      "avg_ear": 0.1492,
+      "duration": 3.982,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:23.502196",
+      "min_ear": 0.0903,
+      "avg_ear": 0.1483,
+      "duration": 1.088,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:24.563789",
+      "min_ear": 0.0909,
+      "avg_ear": 0.1949,
+      "duration": 1.062,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:26.076000",
+      "min_ear": 0.123,
+      "avg_ear": 0.2998,
+      "duration": 1.512,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:26.702457",
+      "min_ear": 0.082,
+      "avg_ear": 0.1928,
+      "duration": 0.626,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:36.866473",
+      "min_ear": 0.0768,
+      "avg_ear": 0.2774,
+      "duration": 10.164,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:38.979833",
+      "min_ear": 0.0855,
+      "avg_ear": 0.3481,
+      "duration": 2.113,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:39.255338",
+      "min_ear": 0.093,
+      "avg_ear": 0.3451,
+      "duration": 0.276,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:39.638214",
+      "min_ear": 0.1017,
+      "avg_ear": 0.34,
+      "duration": 0.383,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:40.034803",
+      "min_ear": 0.0847,
+      "avg_ear": 0.3137,
+      "duration": 0.397,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:40.364962",
+      "min_ear": 0.0836,
+      "avg_ear": 0.2362,
+      "duration": 0.33,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:40.804041",
+      "min_ear": 0.088,
+      "avg_ear": 0.2479,
+      "duration": 0.439,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:41.125341",
+      "min_ear": 0.0899,
+      "avg_ear": 0.3098,
+      "duration": 0.321,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:46.224570",
+      "min_ear": 0.0832,
+      "avg_ear": 0.2684,
+      "duration": 5.099,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:48.024158",
+      "min_ear": 0.0913,
+      "avg_ear": 0.2038,
+      "duration": 1.8,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-23T16:00:48.614536",
+      "min_ear": 0.0926,
+      "avg_ear": 0.212,
+      "duration": 0.59,
+      "type": "full"
+    }
+  ]
+}

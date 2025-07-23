@@ -65,10 +65,17 @@ const BlinkGame = () => {
         socket.current.emit("end_game", (response) => {
             if (response?.status === "game_ended") {
                 console.log("收到后端游戏数据:", response.game_data);
-
+                const {
+                    blinkCount,
+                    leftBlinks,
+                    rightBlinks,
+                    timestamp,
+                    mode,
+                    ...filteredFrontendResult
+                } = resultRef.current;
                 // 合并前后端数据
                 const fullRecord = {
-                    ...resultRef.current,
+                    ...filteredFrontendResult,
                     ...response.game_data,
                 };
 
@@ -85,7 +92,7 @@ const BlinkGame = () => {
                 );
 
                 // 更新摘要显示完整数据
-                setSummary(fullRecord);
+                setSummary(resultRef.current);
             }
 
             // 关闭游戏
@@ -298,13 +305,30 @@ const BlinkGame = () => {
     const renderModeComponent = () => {
         switch (mode) {
             case "classic":
-                return <ClassicMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
+                return (
+                    <ClassicMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                    />
+                );
             case "jump":
-                return <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
+                return (
+                    <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />
+                );
             case "maze":
-                return <MazeRescueMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
+                return (
+                    <MazeRescueMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                    />
+                );
             default:
-                return <ClassicMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />;
+                return (
+                    <ClassicMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                    />
+                );
         }
     };
 
