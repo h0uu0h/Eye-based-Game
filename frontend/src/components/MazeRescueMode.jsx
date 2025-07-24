@@ -18,7 +18,7 @@ import failSound from "/sounds/maze/fail.mp3";
 const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     // ================ 可配置参数 ================
     const config = {
-        closeEyeTime: [2000, 3000, 4000, 5000], // 闭眼时间范围
+        closeEyeTime: [2, 3, 4, 5], // 闭眼时间范围
         blinkWindow: 3000, // 眨眼时间窗口
         timeReward: 1000, // 每次奖励时间
         turnSequence: ["right", "left", "right", "left"], // 转向顺序
@@ -59,6 +59,11 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     const gameStateRef = useRef(gameState);
     const currentStepRef = useRef(currentStep);
     const blinkInWindowRef = useRef(blinkInWindow);
+    const accumulatedCloseEyeTimeRef = useRef(0); // 累计闭眼时间
+    const wallTimeTargetRef = useRef(0); // 当前目标闭眼时长（随机值）
+    const hasHitWallRef = useRef(false); // 是否已经撞墙进入眨眼阶段
+    const isFootstepPlayingRef = useRef(false);
+    const wallCheckTimerRef = useRef(null);
 
     // 同步ref状态
     useEffect(() => {
@@ -158,45 +163,126 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     }, [speak]);
 
     const startMoving = useCallback(() => {
-        if (gameStateRef.current !== "waiting") return;
-
-        setGameState("playing");
+        // 记录闭眼起始时间
         closeEyeStartRef.current = Date.now();
-        footstepAudioRef.current.loop = true;
-        footstepAudioRef.current.play();
 
-        // 随机时间后撞墙
-        const wallTime =
-            config.closeEyeTime[
-                Math.floor(Math.random() * config.closeEyeTime.length)
-            ];
+        // 启动脚步声（只播放一次）
+        if (!isFootstepPlayingRef.current) {
+            footstepAudioRef.current.currentTime = 0;
+            footstepAudioRef.current.loop = true;
+            footstepAudioRef.current
+                .play()
+                .then(() => {
+                    isFootstepPlayingRef.current = true;
+                })
+                .catch((e) => {
+                    console.warn("Footstep play error:", e);
+                });
+        }
 
-        moveTimerRef.current = setTimeout(() => {
-            wallAudioRef.current.play();
-            speak("睁双眼停止移动");
-        }, wallTime);
+        // 进入 playing 状态
+        if (gameStateRef.current === "waiting") {
+            setGameState("playing");
+
+            // 只生成一次目标时间（毫秒）
+            if (!wallTimeTargetRef.current) {
+                wallTimeTargetRef.current =
+                    config.closeEyeTime[
+                        Math.floor(Math.random() * config.closeEyeTime.length)
+                    ] * 1000; // 秒转毫秒
+            }
+
+            hasHitWallRef.current = false;
+        }
+
+        // 设置撞墙检测定时器
+        if (!wallCheckTimerRef.current) {
+            wallCheckTimerRef.current = setInterval(() => {
+                const now = Date.now();
+                const currentDuration = now - closeEyeStartRef.current;
+                const totalDuration =
+                    accumulatedCloseEyeTimeRef.current + currentDuration;
+
+                if (
+                    totalDuration >= wallTimeTargetRef.current &&
+                    !hasHitWallRef.current
+                ) {
+                    hasHitWallRef.current = true;
+
+                    // 清除定时器
+                    clearInterval(wallCheckTimerRef.current);
+                    wallCheckTimerRef.current = null;
+
+                    // 停止脚步声
+                    footstepAudioRef.current.pause();
+                    footstepAudioRef.current.currentTime = 0;
+                    isFootstepPlayingRef.current = false;
+
+                    wallAudioRef.current.play();
+                    // speak("睁双眼停止移动");
+
+                    setTimeout(() => {
+                        setGameState("direction");
+                        speak("眨眼多次提示方向和奖励时间");
+                        directionTimerRef.current = setTimeout(() => {
+                            if (gameStateRef.current === "direction") {
+                                startBlinkWindow();
+                            }
+                        }, config.voiceDelay);
+                    }, 500);
+                }
+            }, 100); // 每 100ms 检查一次
+        }
     }, [speak]);
 
     const stopMoving = useCallback(() => {
         if (gameStateRef.current !== "playing") return;
 
-        clearTimeout(moveTimerRef.current);
-        footstepAudioRef.current.pause();
+        // 停止脚步声
+        if (isFootstepPlayingRef.current) {
+            footstepAudioRef.current.pause();
+            footstepAudioRef.current.currentTime = 0;
+            isFootstepPlayingRef.current = false;
+        }
 
-        // 记录闭眼时长
-        gameStatsRef.current.closeEyeDuration +=
-            Date.now() - closeEyeStartRef.current;
+        // 清除撞墙检测定时器
+        if (wallCheckTimerRef.current) {
+            clearInterval(wallCheckTimerRef.current);
+            wallCheckTimerRef.current = null;
+        }
 
-        // 进入方向选择
-        setGameState("direction");
-        speak("眨眼多次提示方向和奖励时间");
+        // 累加闭眼时间
+        const closeDuration = Date.now() - closeEyeStartRef.current;
+        accumulatedCloseEyeTimeRef.current += closeDuration;
+        gameStatsRef.current.closeEyeDuration += closeDuration;
 
-        // 1秒后开始眨眼窗口
-        directionTimerRef.current = setTimeout(() => {
-            if (gameStateRef.current === "direction") {
-                startBlinkWindow();
-            }
-        }, config.voiceDelay);
+        console.log(
+            "closeDuration",
+            closeDuration,
+            accumulatedCloseEyeTimeRef.current,
+            wallTimeTargetRef.current
+        );
+
+        // 如果在 stop 时恰好达到撞墙条件，也做一遍兜底检查
+        if (
+            accumulatedCloseEyeTimeRef.current >= wallTimeTargetRef.current &&
+            !hasHitWallRef.current
+        ) {
+            hasHitWallRef.current = true;
+
+            wallAudioRef.current.play();
+            speak("睁双眼停止移动");
+
+            setTimeout(() => {
+                setGameState("direction");
+                speak("眨眼多次提示方向和奖励时间");
+                directionTimerRef.current = setTimeout(() => {
+                    if (gameStateRef.current === "direction") {
+                        startBlinkWindow();
+                    }
+                }, config.voiceDelay);
+            }, 500);
+        }
     }, [speak]);
 
     const startBlinkWindow = useCallback(() => {
@@ -239,6 +325,13 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         if (currentStepRef.current >= config.turnSequence.length - 1) {
             endGame(true);
         } else {
+            accumulatedCloseEyeTimeRef.current = 0;
+            wallTimeTargetRef.current = 0;
+            hasHitWallRef.current = false;
+            if (wallCheckTimerRef.current) {
+                clearInterval(wallCheckTimerRef.current);
+                wallCheckTimerRef.current = null;
+            }
             setCurrentStep((prev) => prev + 1);
             setGameState("waiting");
             speak("闭双眼继续前行");
@@ -318,17 +411,15 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     const handleEyeState = useCallback(
         (data) => {
             setEyeState(data.status);
-
             if (
-                gameStateRef.current === "waiting" &&
-                data.status === "closed"
+                gameStateRef.current === "waiting" ||
+                gameStateRef.current === "playing"
             ) {
-                startMoving();
-            } else if (
-                gameStateRef.current === "playing" &&
-                data.status === "open"
-            ) {
-                stopMoving();
+                if (data.status === "closed") {
+                    startMoving();
+                } else if (data.status === "open") {
+                    stopMoving();
+                }
             }
         },
         [startMoving, stopMoving]
