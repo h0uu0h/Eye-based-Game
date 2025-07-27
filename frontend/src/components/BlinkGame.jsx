@@ -9,6 +9,7 @@ import JumpMode from "./JumpMode";
 import GameSummary from "./GameSummary";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
+import DiceSpaceMode from "./DiceSpaceMode";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
@@ -322,6 +323,13 @@ const BlinkGame = () => {
                         shouldEnd={gameEnded}
                     />
                 );
+            case "dice":
+                return (
+                    <DiceSpaceMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                    />
+                );
             default:
                 return (
                     <ClassicMode
@@ -360,6 +368,7 @@ const BlinkGame = () => {
                     <option value="classic">校准模式</option>
                     <option value="jump">跳一跳</option>
                     <option value="maze">迷宫</option>
+                    <option value="dice">骰子</option>
                 </select>
             </div>
             <button

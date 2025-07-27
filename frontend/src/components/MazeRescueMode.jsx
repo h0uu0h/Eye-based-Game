@@ -21,7 +21,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         closeEyeTime: [2, 3, 4, 5], // 闭眼时间范围
         blinkWindow: 3000, // 眨眼时间窗口
         timeReward: 1000, // 每次奖励时间
-        turnSequence: ["right", "left", "right", "left"], // 转向顺序
+        turnSequence: ["right", "left", "right"], // 转向顺序
         voiceDelay: 1000, // 语音延迟
         totalTime: 30000, // 总游戏时间
     };
@@ -92,6 +92,19 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         window.speechSynthesis.speak(utterance);
     }, []);
 
+    // 新增 speakAndWait 函数
+    const speakAndWait = useCallback(async (text) => {
+        return new Promise((resolve) => {
+            if (!window.speechSynthesis) return resolve();
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "zh-CN";
+            utterance.onend = () => setTimeout(resolve, 200);
+            window.speechSynthesis.speak(utterance);
+        });
+    }, []);
+
     const stopAllSounds = useCallback(() => {
         [
             bgAudioRef,
@@ -112,7 +125,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     }, []);
 
     // ================ 游戏逻辑 ================
-    const startGame = useCallback(() => {
+    const startGame = useCallback(async () => {
         if (gameStateRef.current !== "intro") return;
 
         // 重置游戏数据
@@ -140,7 +153,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         bgAudioRef.current.play().catch(console.warn);
 
         // 游戏开始语音
-        speak(
+        await speakAndWait(
             "您的好朋友正在迷宫的另一侧等待救援，根据声音提示尽快过去吧！闭双眼开始计时。"
         );
 
@@ -160,7 +173,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 endGame(false);
             }
         }, 1000);
-    }, [speak]);
+    }, [speakAndWait]);
 
     const startMoving = useCallback(() => {
         // 记录闭眼起始时间

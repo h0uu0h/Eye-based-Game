@@ -1,30 +1,30 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
-import styles from "./DiceSpaceMode.module.css";
 
 // 音效导入
-import bgSound from "/sounds/dice/background.mp3"; // 【骰子背景音】
-import rollSound from "/sounds/dice/roll.mp3"; // 【摇骰子音效】
-import readySound from "/sounds/dice/ready.mp3"; // 【掷骰子音效】
-import switchSound from "/sounds/dice/switch.mp3"; // 【骰子切换音效】
-import wrongSound from "/sounds/dice/wrong.mp3"; // 【XX音效】(错误提示)
-import timerSound from "/sounds/dice/timer.mp3"; // 【计时音效】
-import levelUpSound from "/sounds/dice/levelup.mp3"; // 【level up音效】
-import victorySound from "/sounds/dice/victory.mp3"; // 【胜利音效】
-import failSound from "/sounds/dice/fail.mp3"; // 【失败音效】
+import bgSound from "/sounds/dice/background.mp3";
+import rollSound from "/sounds/dice/roll.mp3";
+import readySound from "/sounds/dice/ready.mp3";
+import switchSound from "/sounds/dice/switch.mp3";
+import wrongSound from "/sounds/dice/wrong.mp3";
+import timerSound from "/sounds/dice/timer.mp3";
+import levelUpSound from "/sounds/dice/levelup.mp3";
+import victorySound from "/sounds/dice/victory.mp3";
+import failSound from "/sounds/dice/fail.mp3";
 
 const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
     // ================ 可配置参数 ================
     const config = {
-        diceCount: 4, // 骰子数量 (文档要求4个骰子)
-        minPoints: 14, // 目标点数 (文档要求≥14点)
-        closeEyeTime: { min: 3000, max: 5000 }, // 闭眼时间范围2-5秒 (3000-5000ms)
-        blinkWindow: 3000, // 多次眨眼时间窗口3s (文档要求)
-        pointPerBlink: 1, // 每眨眼两次增加1点 (文档要求)
-        switchSequence: ["right", "left", "right", "left"], // 切换顺序 (文档示例右左右左)
-        voiceDelay: 1000, // 语音提示延迟1s (文档要求)
-        totalTime: 30000, // 总游戏时间30s (文档要求)
+        diceCount: 4,
+        minPoints: 14,
+        closeEyeTime: [2000, 3000, 4000, 5000], // 闭眼时间范围
+        blinkWindow: 3000, // 眨眼时间窗口
+        pointPerBlink: 1, // 每眨眼两次增加1点
+        switchSequence: ["right", "left", "right", "left"], // 切换顺序
+        voiceDelay: 1000, // 语音延迟
+        totalTime: 30000, // 总游戏时间
     };
 
     // ================ 状态管理 ================
@@ -39,16 +39,17 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         bonusPoints: 0,
     });
 
-    const [uiState, setUiState] = useState({
-        gameState: "intro", // intro, waiting, rolling, pointPhase, switchPhase, ended
-        countdown: config.totalTime / 1000,
-        currentDice: 0, // 当前骰子索引
-        showPrompt: false, // 是否显示提示
-        diceRolling: false, // 骰子是否在滚动
-        diceValue: 0, // 当前骰子值
-        bonusValue: 0, // 奖励点数
-        blinkInWindow: 0, // 时间窗口内眨眼次数
-    });
+    const [gameState, setGameState] = useState("intro"); // intro, waiting, rolling, pointPhase, switchPhase, ended
+    const [currentDice, setCurrentDice] = useState(0);
+    const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
+    const [blinkCount, setBlinkCount] = useState(0);
+    const [leftBlinks, setLeftBlinks] = useState(0);
+    const [rightBlinks, setRightBlinks] = useState(0);
+    const [wrongSwitches, setWrongSwitches] = useState(0);
+    const [eyeState, setEyeState] = useState("open");
+    const [diceValue, setDiceValue] = useState(0);
+    const [bonusValue, setBonusValue] = useState(0);
+    const [blinkInWindow, setBlinkInWindow] = useState(0);
 
     // ================ Refs ================
     const socket = useRef(null);
@@ -58,6 +59,25 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
     const blinkWindowTimerRef = useRef(null);
     const closeEyeStartRef = useRef(0);
     const lastBlinkTimeRef = useRef(0);
+    const startGameDebounceRef = useRef(null);
+    const gameStateRef = useRef(gameState);
+    const currentDiceRef = useRef(currentDice);
+    const diceValueRef = useRef(diceValue);
+    const bonusValueRef = useRef(bonusValue);
+    const blinkInWindowRef = useRef(blinkInWindow);
+    const isRollingPlayingRef = useRef(false);
+    const closeEyeTimeTargetRef = useRef(0); // 当前目标闭眼时长
+    const closeEyeCheckTimerRef = useRef(null); // 闭眼时长检测定时器
+    const accumulatedCloseEyeTimeRef = useRef(0); // 累计闭眼时间
+
+    // 同步ref状态
+    useEffect(() => {
+        gameStateRef.current = gameState;
+        currentDiceRef.current = currentDice;
+        diceValueRef.current = diceValue;
+        bonusValueRef.current = bonusValue;
+        blinkInWindowRef.current = blinkInWindow;
+    }, [gameState, currentDice, diceValue, bonusValue, blinkInWindow]);
 
     // 音效Refs
     const bgAudioRef = useRef(null);
@@ -70,340 +90,28 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
     const victoryAudioRef = useRef(null);
     const failAudioRef = useRef(null);
 
-    // ================ 核心游戏逻辑 ================
-    // 初始化Socket连接
-    useEffect(() => {
-        socket.current = io(import.meta.env.VITE_SOCKET_URL, {
-            transports: ["websocket"],
-        });
-
-        socket.current.on("blink_event", handleBlinkEvent);
-        socket.current.on("eye_state", handleEyeState);
-
-        return () => {
-            socket.current.disconnect();
-            stopAllSounds();
-        };
+    // ================ 核心函数 ================
+    const speak = useCallback((text) => {
+        if (!window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = "zh-CN";
+        window.speechSynthesis.speak(utterance);
     }, []);
 
-    // 监听游戏结束信号
-    useEffect(() => {
-        if (shouldEnd && uiState.gameState !== "ended") {
-            endGame(false);
-        }
-    }, [shouldEnd]);
+    const speakAndWait = useCallback(async (text) => {
+        return new Promise((resolve) => {
+            if (!window.speechSynthesis) return resolve();
 
-    // 处理眨眼事件
-    const handleBlinkEvent = (data) => {
-        gameStatsRef.current.blinkCount = data.total;
-
-        // 在intro状态，眨眼2次开始游戏
-        if (uiState.gameState === "intro" && data.total >= 2) {
-            startGame();
-            return;
-        }
-
-        // 在pointPhase状态统计眨眼次数
-        if (uiState.gameState === "pointPhase") {
-            setUiState((prev) => ({
-                ...prev,
-                blinkInWindow: prev.blinkInWindow + 1,
-                bonusValue: Math.floor((prev.blinkInWindow + 1) / 2),
-            }));
-            levelUpAudioRef.current.play();
-        }
-
-        // 在switchPhase状态处理切换
-        if (uiState.gameState === "switchPhase") {
-            const now = Date.now();
-            if (now - lastBlinkTimeRef.current < 300) return; // 防抖
-
-            lastBlinkTimeRef.current = now;
-
-            // 检查眨眼方向是否正确
-            const expectedDirection =
-                config.switchSequence[uiState.currentDice];
-            if (data.type === expectedDirection) {
-                handleCorrectSwitch();
-            } else {
-                handleWrongSwitch();
-            }
-        }
-    };
-
-    // 处理眼睛状态
-    const handleEyeState = (data) => {
-        if (uiState.gameState === "waiting" && data.status === "closed") {
-            startRolling();
-        }
-
-        if (uiState.gameState === "rolling" && data.status === "open") {
-            // 如果提前睁眼
-            if (
-                Date.now() - closeEyeStartRef.current <
-                config.closeEyeTime.min
-            ) {
-                speak("闭双眼继续摇骰子");
-            } else {
-                stopRolling();
-            }
-        }
-    };
-
-    // 开始游戏
-    const startGame = () => {
-        // 重置游戏数据
-        gameStatsRef.current = {
-            totalPoints: 0,
-            dicePoints: Array(config.diceCount).fill(0),
-            blinkCount: 0,
-            leftBlinks: 0,
-            rightBlinks: 0,
-            wrongSwitches: 0,
-            closeEyeDuration: 0,
-            bonusPoints: 0,
-        };
-
-        setUiState({
-            gameState: "waiting",
-            countdown: config.totalTime / 1000,
-            currentDice: 0,
-            showPrompt: false,
-            diceRolling: false,
-            diceValue: 0,
-            bonusValue: 0,
-            blinkInWindow: 0,
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "zh-CN";
+            utterance.onend = () => setTimeout(resolve, 200);
+            window.speechSynthesis.speak(utterance);
         });
+    }, []);
 
-        // 播放背景音乐
-        bgAudioRef.current.loop = true;
-        bgAudioRef.current.volume = 0.3;
-        bgAudioRef.current
-            .play()
-            .catch((e) => console.warn("背景音乐播放失败:", e));
-
-        // 播放开始语音
-        speak(
-            "您进入了一个骰子空间，掷出4个骰子并使其点数之和大于14即可离开，闭双眼开始摇第一个骰子，并在听到提示后掷出。"
-        );
-
-        // 开始总倒计时
-        startCountdown();
-    };
-
-    // 开始总倒计时
-    const startCountdown = () => {
-        countdownTimerRef.current = setInterval(() => {
-            setUiState((prev) => {
-                const newCountdown = prev.countdown - 1;
-                if (newCountdown <= 0) {
-                    endGame(false);
-                    return { ...prev, countdown: 0 };
-                }
-                return { ...prev, countdown: newCountdown };
-            });
-        }, 1000);
-    };
-
-    // 开始摇骰子
-    const startRolling = () => {
-        closeEyeStartRef.current = Date.now();
-        rollAudioRef.current.loop = true;
-        rollAudioRef.current.play();
-        setUiState((prev) => ({ ...prev, diceRolling: true }));
-
-        // 随机时间后可以掷出
-        const readyTime =
-            config.closeEyeTime.min +
-            Math.random() * (config.closeEyeTime.max - config.closeEyeTime.min);
-
-        rollTimerRef.current = setTimeout(() => {
-            readyAudioRef.current.play();
-            setUiState((prev) => ({ ...prev, showPrompt: true }));
-
-            // 1秒后检查是否睁眼
-            readyTimerRef.current = setTimeout(() => {
-                if (uiState.gameState === "rolling") {
-                    speak("睁双眼掷骰子");
-                }
-            }, config.voiceDelay);
-        }, readyTime);
-    };
-
-    // 停止摇骰子
-    const stopRolling = () => {
-        clearTimeout(rollTimerRef.current);
-        clearTimeout(readyTimerRef.current);
-
-        // 记录闭眼时长
-        const closeDuration = Date.now() - closeEyeStartRef.current;
-        gameStatsRef.current.closeEyeDuration += closeDuration;
-
-        rollAudioRef.current.pause();
-        setUiState((prev) => ({
-            ...prev,
-            diceRolling: false,
-            showPrompt: false,
-        }));
-
-        // 进入点数阶段
-        startPointPhase();
-    };
-
-    // 开始点数阶段
-    const startPointPhase = () => {
-        // 随机生成初始点数 (1-6)
-        const initialValue = Math.floor(Math.random() * 6) + 1;
-
-        setUiState((prev) => ({
-            ...prev,
-            gameState: "pointPhase",
-            diceValue: initialValue,
-            bonusValue: 0,
-            blinkInWindow: 0,
-            showPrompt: true,
-        }));
-
-        // 提示玩家初始点数
-        speak(`初始点数: ${initialValue}点`);
-
-        // 1秒后提示眨眼增加点数
-        readyTimerRef.current = setTimeout(() => {
-            if (uiState.gameState === "pointPhase") {
-                speak("眨双眼多次增加点数");
-                startBlinkWindow();
-            }
-        }, config.voiceDelay);
-    };
-
-    // 开始眨眼时间窗口
-    const startBlinkWindow = () => {
-        timerAudioRef.current.play();
-
-        // 设置时间窗口
-        blinkWindowTimerRef.current = setTimeout(() => {
-            endBlinkWindow();
-        }, config.blinkWindow);
-    };
-
-    // 结束眨眼时间窗口
-    const endBlinkWindow = () => {
-        timerAudioRef.current.pause();
-
-        // 计算最终点数
-        const finalValue = uiState.diceValue + uiState.bonusValue;
-        gameStatsRef.current.dicePoints[uiState.currentDice] = finalValue;
-        gameStatsRef.current.totalPoints += finalValue;
-        gameStatsRef.current.bonusPoints += uiState.bonusValue;
-
-        // 提示最终点数
-        speak(`最终点数: ${finalValue}点`);
-
-        // 进入切换阶段
-        setUiState((prev) => ({
-            ...prev,
-            gameState: "switchPhase",
-            showPrompt: true,
-        }));
-
-        // 提示切换方向
-        const direction = config.switchSequence[uiState.currentDice];
-        speak(`${direction === "left" ? "左" : "右"}眨切换`);
-
-        // 1秒后检查是否切换
-        readyTimerRef.current = setTimeout(() => {
-            if (uiState.gameState === "switchPhase") {
-                speak(
-                    `${direction === "left" ? "左" : "右"}眨眼切换下一个骰子`
-                );
-            }
-        }, config.voiceDelay);
-    };
-
-    // 处理正确切换
-    const handleCorrectSwitch = () => {
-        clearTimeout(readyTimerRef.current);
-        switchAudioRef.current.play();
-
-        // 更新统计数据
-        const direction = config.switchSequence[uiState.currentDice];
-        if (direction === "left") {
-            gameStatsRef.current.leftBlinks++;
-        } else {
-            gameStatsRef.current.rightBlinks++;
-        }
-
-        // 检查是否是最后一个骰子
-        if (uiState.currentDice >= config.diceCount - 1) {
-            endGame(true);
-        } else {
-            // 进入下一个骰子
-            setUiState((prev) => ({
-                ...prev,
-                currentDice: prev.currentDice + 1,
-                gameState: "waiting",
-                showPrompt: false,
-            }));
-
-            // 提示开始下一个骰子
-            speak("闭双眼开始摇骰子");
-        }
-    };
-
-    // 处理错误切换
-    const handleWrongSwitch = () => {
-        wrongAudioRef.current.play();
-        gameStatsRef.current.wrongSwitches++;
-        const direction = config.switchSequence[uiState.currentDice];
-        speak(`${direction === "left" ? "左" : "右"}眨眼切换下一个骰子`);
-    };
-
-    // 结束游戏
-    const endGame = useCallback(
-        (isSuccess) => {
-            // 清理所有计时器
-            clearInterval(countdownTimerRef.current);
-            clearTimeout(rollTimerRef.current);
-            clearTimeout(readyTimerRef.current);
-            clearTimeout(blinkWindowTimerRef.current);
-
-            // 停止所有音效
-            stopAllSounds();
-
-            // 播放结束音效
-            if (
-                isSuccess &&
-                gameStatsRef.current.totalPoints >= config.minPoints
-            ) {
-                victoryAudioRef.current.play();
-                speak(`恭喜！总点数${gameStatsRef.current.totalPoints}点`);
-            } else {
-                failAudioRef.current.play();
-                speak(`游戏结束！总点数${gameStatsRef.current.totalPoints}点`);
-            }
-
-            // 更新UI状态
-            setUiState((prev) => ({ ...prev, gameState: "ended" }));
-
-            // 准备结算数据
-            const finalStats = {
-                ...gameStatsRef.current,
-                isSuccess:
-                    isSuccess &&
-                    gameStatsRef.current.totalPoints >= config.minPoints,
-                totalPoints: gameStatsRef.current.totalPoints,
-                mode: "dice",
-                timestamp: Date.now(),
-            };
-
-            // 触发结算回调
-            onGameEnd(finalStats);
-        },
-        [onGameEnd]
-    );
-
-    // 停止所有音效
-    const stopAllSounds = () => {
+    const stopAllSounds = useCallback(() => {
         [
             bgAudioRef,
             rollAudioRef,
@@ -420,175 +128,519 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 ref.current.currentTime = 0;
             }
         });
-    };
+    }, []);
 
-    // 语音播报
-    const speak = (text) => {
-        if (!window.speechSynthesis) return;
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "zh-CN";
-        window.speechSynthesis.speak(utterance);
-    };
+    // ================ 游戏逻辑 ================
+    const startGame = useCallback(async () => {
+        if (gameStateRef.current !== "intro") return;
 
-    // 渲染骰子
-    const renderDice = (value, index, isCurrent) => {
-        const dots = [];
-        for (let i = 0; i < value; i++) {
-            dots.push(<div key={i} className={styles.diceDot}></div>);
+        // 重置游戏数据
+        gameStatsRef.current = {
+            totalPoints: 0,
+            dicePoints: Array(config.diceCount).fill(0),
+            blinkCount: 0,
+            leftBlinks: 0,
+            rightBlinks: 0,
+            wrongSwitches: 0,
+            closeEyeDuration: 0,
+            bonusPoints: 0,
+        };
+        setCurrentDice(0);
+        setGameState("waiting");
+        setRemainingTime(config.totalTime / 1000);
+        setBlinkCount(0);
+        setLeftBlinks(0);
+        setRightBlinks(0);
+        setWrongSwitches(0);
+        setDiceValue(0);
+        setBonusValue(0);
+        setBlinkInWindow(0);
+        accumulatedCloseEyeTimeRef.current = 0;
+        closeEyeTimeTargetRef.current = 0;
+
+        // 播放背景音乐
+        bgAudioRef.current.loop = true;
+        bgAudioRef.current.volume = 0.3;
+        bgAudioRef.current.play().catch(console.warn);
+
+        // 游戏开始语音
+        await speakAndWait(
+            "您进入了一个骰子空间，掷出4个骰子并使其点数之和大于14即可离开，闭双眼开始摇第一个骰子，并在听到提示后掷出。"
+        );
+
+        // 开始倒计时
+        countdownTimerRef.current = setInterval(() => {
+            setRemainingTime((prev) => {
+                const newTime = prev - 1;
+                if (newTime <= 0) {
+                    endGame(false);
+                    return 0;
+                }
+                return newTime;
+            });
+        }, 1000);
+    }, [speakAndWait]);
+
+    const startRolling = useCallback(() => {
+        if (gameStateRef.current !== "waiting") return;
+
+        // 记录闭眼起始时间
+        closeEyeStartRef.current = Date.now();
+
+        // 启动摇骰子音效
+        if (!isRollingPlayingRef.current) {
+            rollAudioRef.current.loop = true;
+            rollAudioRef.current
+                .play()
+                .then(() => {
+                    isRollingPlayingRef.current = true;
+                })
+                .catch((e) => {
+                    console.warn("Rolling play error:", e);
+                });
         }
 
-        return (
-            <div
-                key={index}
-                className={`${styles.dice} ${isCurrent ? styles.current : ""}`}>
-                <div className={styles.diceInner}>{dots}</div>
-                {isCurrent && uiState.bonusValue > 0 && (
-                    <div className={styles.diceBonus}>
-                        +{uiState.bonusValue}
-                    </div>
-                )}
-            </div>
-        );
+        // 进入 rolling 状态
+        setGameState("rolling");
+
+        // 只生成一次目标闭眼时间
+        if (!closeEyeTimeTargetRef.current) {
+            closeEyeTimeTargetRef.current =
+                config.closeEyeTime[
+                    Math.floor(Math.random() * config.closeEyeTime.length)
+                ];
+        }
+
+        // 设置闭眼时长检测定时器
+        if (!closeEyeCheckTimerRef.current) {
+            closeEyeCheckTimerRef.current = setInterval(() => {
+                const now = Date.now();
+                const currentDuration = now - closeEyeStartRef.current;
+                const totalDuration =
+                    accumulatedCloseEyeTimeRef.current + currentDuration;
+
+                if (totalDuration >= closeEyeTimeTargetRef.current) {
+                    // 达到目标闭眼时间
+                    clearInterval(closeEyeCheckTimerRef.current);
+                    closeEyeCheckTimerRef.current = null;
+
+                    readyAudioRef.current.play();
+                    speak("睁双眼掷骰子");
+                }
+            }, 100); // 每100ms检查一次
+        }
+    }, [speak]);
+
+    const stopRolling = useCallback(() => {
+        if (gameStateRef.current !== "rolling") return;
+
+        // 停止摇骰子音效
+        if (isRollingPlayingRef.current) {
+            rollAudioRef.current.pause();
+            rollAudioRef.current.currentTime = 0;
+            isRollingPlayingRef.current = false;
+        }
+
+        // 清除定时器
+        if (closeEyeCheckTimerRef.current) {
+            clearInterval(closeEyeCheckTimerRef.current);
+            closeEyeCheckTimerRef.current = null;
+        }
+
+        // 累加闭眼时间
+        const closeDuration = Date.now() - closeEyeStartRef.current;
+        accumulatedCloseEyeTimeRef.current += closeDuration;
+        gameStatsRef.current.closeEyeDuration += closeDuration;
+
+        // 检查是否达到目标闭眼时间
+        if (
+            accumulatedCloseEyeTimeRef.current >= closeEyeTimeTargetRef.current
+        ) {
+            // 达到目标时间，生成点数
+            const initialValue = Math.floor(Math.random() * 6) + 1;
+            setDiceValue(initialValue);
+            setBonusValue(0);
+            setBlinkInWindow(0);
+
+            // 进入点数阶段
+            setGameState("pointPhase");
+            speak(`初始点数: ${initialValue}点`);
+
+            // 1秒后开始眨眼窗口
+            readyTimerRef.current = setTimeout(() => {
+                if (gameStateRef.current === "pointPhase") {
+                    startBlinkWindow();
+                }
+            }, config.voiceDelay);
+        } else {
+            // 未达到目标时间，提示继续闭眼
+            speak("闭双眼继续摇骰子");
+            setGameState("waiting");
+        }
+    }, [speak]);
+
+    const startBlinkWindow = useCallback(() => {
+        setGameState("blinkWindow");
+        setBlinkInWindow(0);
+        timerAudioRef.current.play();
+
+        speak("眨眼多次增加点数");
+
+        blinkWindowTimerRef.current = setTimeout(() => {
+            endBlinkWindow();
+        }, config.blinkWindow);
+    }, [speak]);
+
+    const endBlinkWindow = useCallback(() => {
+        timerAudioRef.current.pause();
+        setGameState("pointPhase");
+
+        // 计算最终点数
+        const finalValue = diceValueRef.current + bonusValueRef.current;
+        gameStatsRef.current.dicePoints[currentDiceRef.current] = finalValue;
+        gameStatsRef.current.totalPoints += finalValue;
+        gameStatsRef.current.bonusPoints += bonusValueRef.current;
+
+        speak(`最终点数: ${finalValue}点`);
+
+        // 进入切换阶段
+        setGameState("switchPhase");
+
+        const direction = config.switchSequence[currentDiceRef.current];
+        speak(`${direction === "left" ? "左" : "右"}眨切换下一个骰子`);
+
+        // 1秒后检查是否切换
+        readyTimerRef.current = setTimeout(() => {
+            if (gameStateRef.current === "switchPhase") {
+                const direction = config.switchSequence[currentDiceRef.current];
+                speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
+            }
+        }, config.voiceDelay);
+    }, [speak]);
+
+    const handleCorrectSwitch = useCallback(() => {
+        switchAudioRef.current.play();
+
+        // 更新统计
+        const direction = config.switchSequence[currentDiceRef.current];
+        if (direction === "left") {
+            setLeftBlinks((prev) => prev + 1);
+            gameStatsRef.current.leftBlinks++;
+        } else {
+            setRightBlinks((prev) => prev + 1);
+            gameStatsRef.current.rightBlinks++;
+        }
+
+        // 检查是否完成
+        if (currentDiceRef.current >= config.diceCount - 1) {
+            endGame(true);
+        } else {
+            // 重置闭眼相关状态
+            accumulatedCloseEyeTimeRef.current = 0;
+            closeEyeTimeTargetRef.current = 0;
+
+            setCurrentDice((prev) => prev + 1);
+            setGameState("waiting");
+            speak("闭双眼开始摇骰子");
+        }
+    }, [speak]);
+
+    const handleWrongSwitch = useCallback(() => {
+        wrongAudioRef.current.play();
+        setWrongSwitches((prev) => prev + 1);
+        gameStatsRef.current.wrongSwitches++;
+
+        const direction = config.switchSequence[currentDiceRef.current];
+        speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
+    }, [speak]);
+
+    const endGame = useCallback(
+        (isSuccess) => {
+            // 清理所有计时器
+            clearInterval(countdownTimerRef.current);
+            clearTimeout(rollTimerRef.current);
+            clearTimeout(readyTimerRef.current);
+            clearTimeout(blinkWindowTimerRef.current);
+            clearTimeout(startGameDebounceRef.current);
+            if (closeEyeCheckTimerRef.current) {
+                clearInterval(closeEyeCheckTimerRef.current);
+                closeEyeCheckTimerRef.current = null;
+            }
+
+            // 停止所有音效
+            stopAllSounds();
+
+            // 播放结束音效
+            const isVictory =
+                isSuccess &&
+                gameStatsRef.current.totalPoints >= config.minPoints;
+            if (isVictory) {
+                victoryAudioRef.current.play();
+                speak(`恭喜！总点数${gameStatsRef.current.totalPoints}点`);
+            } else {
+                failAudioRef.current.play();
+                speak(`游戏结束！总点数${gameStatsRef.current.totalPoints}点`);
+            }
+
+            // 准备结算数据
+            const finalStats = {
+                ...gameStatsRef.current,
+                isSuccess: isVictory,
+                totalPoints: gameStatsRef.current.totalPoints,
+                mode: "dice",
+                timestamp: Date.now(),
+            };
+
+            setGameState("ended");
+            onGameEnd(finalStats);
+        },
+        [onGameEnd, stopAllSounds, speak]
+    );
+
+    // ================ 事件处理 ================
+    const handleBlinkEvent = useCallback(
+        (data) => {
+            setBlinkCount(data.total);
+            gameStatsRef.current.blinkCount = data.total;
+
+            // 开始游戏
+            if (gameStateRef.current === "intro" && data.total >= 2) {
+                clearTimeout(startGameDebounceRef.current);
+                startGameDebounceRef.current = setTimeout(startGame, 300);
+                return;
+            }
+
+            // 点数窗口
+            if (gameStateRef.current === "blinkWindow") {
+                setBlinkInWindow((prev) => prev + 1);
+                setBonusValue(Math.floor((blinkInWindowRef.current + 1) / 2));
+                levelUpAudioRef.current.play();
+            }
+        },
+        [startGame]
+    );
+
+    const handleEyeState = useCallback(
+        (data) => {
+            setEyeState(data.status);
+            if (
+                gameStateRef.current === "waiting" &&
+                data.status === "closed"
+            ) {
+                startRolling();
+            } else if (
+                gameStateRef.current === "rolling" &&
+                data.status === "open"
+            ) {
+                stopRolling();
+            }
+        },
+        [startRolling, stopRolling]
+    );
+
+    const handleLeftBlink = useCallback(
+        (data) => {
+            setBlinkCount((prev) => prev + 1);
+            gameStatsRef.current.blinkCount++;
+
+            if (gameStateRef.current === "switchPhase") {
+                const now = Date.now();
+                if (now - lastBlinkTimeRef.current < 300) return;
+                lastBlinkTimeRef.current = now;
+
+                const expectedDirection =
+                    config.switchSequence[currentDiceRef.current];
+                if (expectedDirection === "left") {
+                    handleCorrectSwitch();
+                } else {
+                    handleWrongSwitch();
+                }
+            }
+        },
+        [handleCorrectSwitch, handleWrongSwitch]
+    );
+
+    const handleRightBlink = useCallback(
+        (data) => {
+            setBlinkCount((prev) => prev + 1);
+            gameStatsRef.current.blinkCount++;
+
+            if (gameStateRef.current === "switchPhase") {
+                const now = Date.now();
+                if (now - lastBlinkTimeRef.current < 300) return;
+                lastBlinkTimeRef.current = now;
+
+                const expectedDirection =
+                    config.switchSequence[currentDiceRef.current];
+                if (expectedDirection === "right") {
+                    handleCorrectSwitch();
+                } else {
+                    handleWrongSwitch();
+                }
+            }
+        },
+        [handleCorrectSwitch, handleWrongSwitch]
+    );
+
+    // ================ 生命周期 ================
+    useEffect(() => {
+        socket.current = io(import.meta.env.VITE_SOCKET_URL, {
+            transports: ["websocket"],
+        });
+
+        socket.current.on("blink_event", handleBlinkEvent);
+        socket.current.on("eye_state", handleEyeState);
+        socket.current.on("left_blink_event", handleLeftBlink);
+        socket.current.on("right_blink_event", handleRightBlink);
+
+        // 初始语音提示
+        speak("欢迎来到骰子空间游戏，请眨双眼两次开始游戏");
+
+        return () => {
+            socket.current.disconnect();
+            stopAllSounds();
+            window.speechSynthesis.cancel();
+        };
+    }, [
+        handleBlinkEvent,
+        handleEyeState,
+        handleLeftBlink,
+        handleRightBlink,
+        speak,
+        stopAllSounds,
+    ]);
+
+    useEffect(() => {
+        if (shouldEnd && gameStateRef.current !== "ended") {
+            endGame(false);
+        }
+    }, [shouldEnd, endGame]);
+
+    // 渲染游戏状态文本
+    const renderGameState = () => {
+        switch (gameState) {
+            case "intro":
+                return "请眨双眼两次开始游戏";
+            case "waiting":
+                return eyeState === "closed"
+                    ? "摇骰子中...闭双眼继续"
+                    : "请闭双眼开始摇骰子";
+            case "rolling":
+                return "摇骰子中...睁双眼停止";
+            case "pointPhase":
+                return "点数阶段";
+            case "blinkWindow":
+                return `快速眨眼增加点数！(${blinkInWindow}次)`;
+            case "switchPhase":
+                return "请选择切换方向";
+            case "ended":
+                return "游戏结束";
+            default:
+                return "";
+        }
     };
 
-    // ================ 渲染部分 ================
+    // ================ 渲染 ================
     return (
-        <div className={styles.container}>
-            {/* 音效资源 */}
-            <audio ref={bgAudioRef} src={bgSound} preload="auto" />
-            <audio ref={rollAudioRef} src={rollSound} preload="auto" />
-            <audio ref={readyAudioRef} src={readySound} preload="auto" />
-            <audio ref={switchAudioRef} src={switchSound} preload="auto" />
-            <audio ref={wrongAudioRef} src={wrongSound} preload="auto" />
-            <audio ref={timerAudioRef} src={timerSound} preload="auto" />
-            <audio ref={levelUpAudioRef} src={levelUpSound} preload="auto" />
-            <audio ref={victoryAudioRef} src={victorySound} preload="auto" />
-            <audio ref={failAudioRef} src={failSound} preload="auto" />
+        <div
+            style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                textAlign: "center",
+                backgroundColor: "rgba(0, 0, 0, 0.7)",
+            }}>
+            {/* 游戏标题 */}
+            <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
+            <p style={{ color: "rgb(255,255,255,0.7)" }}>
+                根据语音提示完成骰子游戏
+            </p>
 
-            {/* 介绍界面 */}
-            {uiState.gameState === "intro" && (
-                <div className={styles.introContainer}>
-                    <h1 className={styles.introTitle}>骰子空间(21点)</h1>
-                    <div className={styles.rulesContainer}>
-                        <h2 className={styles.rulesTitle}>游戏规则</h2>
-                        <p className={styles.rulesText}>• 闭眼3-5秒：摇骰子</p>
-                        <p className={styles.rulesText}>• 睁眼：停止摇骰子</p>
-                        <p className={styles.rulesText}>• 眨眼2次：获取点数</p>
-                        <p className={styles.rulesText}>• 多次眨眼：增加点数</p>
-                        <p className={styles.rulesText}>
-                            • 眨左眼/右眼：切换骰子
-                        </p>
-                        <p className={styles.rulesGoal}>
-                            目标：4个骰子总点数达到14点以上
-                        </p>
-                    </div>
-                    <p className={styles.startPrompt}>眨双眼2次开始游戏</p>
+            {/* 等待开始界面（眨双眼两次） */}
+            {gameState === "intro" && (
+                <div>
+                    <p>
+                        闭双眼：摇骰子
+                        <br />
+                        睁双眼：停止摇骰子
+                        <br />
+                        左眨眼：左切换
+                        <br />
+                        右眨眼：右切换
+                    </p>
+                    <p
+                        style={{
+                            marginTop: "2rem",
+                            fontSize: "1rem",
+                            color: "pink",
+                        }}>
+                        开始游戏（眨双眼两次）
+                        <span style={{ color: "pink" }}>{blinkCount}/2</span>
+                    </p>
                 </div>
             )}
 
             {/* 游戏进行中界面 */}
-            {uiState.gameState !== "intro" && uiState.gameState !== "ended" && (
+            {gameState !== "intro" && gameState !== "ended" && (
                 <>
-                    <div className={styles.timerContainer}>
-                        <div>剩余时间: {uiState.countdown}秒</div>
-                        <div
-                            className={`${styles.statusIndicator} ${
-                                uiState.diceRolling ? styles.active : ""
-                            }`}></div>
-                    </div>
-
-                    <div className={styles.targetPoints}>
-                        目标点数: {config.minPoints}点
-                    </div>
-
-                    <h2 style={{ marginBottom: "30px" }}>
-                        {uiState.currentDice < config.diceCount
-                            ? `骰子 ${uiState.currentDice + 1}/${
-                                  config.diceCount
-                              }`
-                            : "游戏结束"}
-                    </h2>
-
-                    {/* 骰子容器 */}
-                    <div className={styles.diceContainer}>
-                        {gameStatsRef.current.dicePoints.map((value, index) =>
-                            renderDice(
-                                value,
-                                index,
-                                index === uiState.currentDice
-                            )
+                    <h1>{remainingTime}秒</h1>
+                    <p>
+                        当前骰子: {currentDice + 1}/{config.diceCount}
+                        <br />
+                        当前点数: {diceValue} + {bonusValue} ={" "}
+                        {diceValue + bonusValue}
+                        {currentDice > 0 && (
+                            <>
+                                <br />
+                                总点数: {gameStatsRef.current.totalPoints}
+                            </>
                         )}
-                    </div>
-
-                    {/* 总点数 */}
-                    {uiState.currentDice > 0 && (
-                        <div className={styles.totalPoints}>
-                            当前总点数: {gameStatsRef.current.totalPoints}点
-                        </div>
-                    )}
-
-                    {/* 时间窗口进度条 */}
-                    {uiState.gameState === "pointPhase" && (
-                        <div className={styles.progressContainer}>
-                            <div
-                                className={styles.progressBar}
-                                style={{
-                                    width: `${
-                                        (uiState.blinkInWindow / 12) * 100
-                                    }%`,
-                                    background:
-                                        uiState.blinkInWindow > 6
-                                            ? "#2ecc71"
-                                            : "#3498db",
-                                }}></div>
-                        </div>
-                    )}
-
-                    {/* 操作提示 */}
-                    {uiState.showPrompt && (
-                        <div className={styles.promptBox}>
-                            {uiState.gameState === "rolling" && (
-                                <p>请睁眼掷骰子</p>
-                            )}
-                            {uiState.gameState === "pointPhase" && (
-                                <p>请眨眼增加点数</p>
-                            )}
-                            {uiState.gameState === "switchPhase" && (
-                                <p>
-                                    请
-                                    {config.switchSequence[
-                                        uiState.currentDice
-                                    ] === "left"
-                                        ? "左"
-                                        : "右"}
-                                    眨眼切换
-                                </p>
-                            )}
-                        </div>
-                    )}
-
-                    {/* 时间窗口内眨眼计数 */}
-                    {uiState.gameState === "pointPhase" && (
-                        <div className={styles.blinkCount}>
-                            已眨眼: {uiState.blinkInWindow}次 (+
-                            {uiState.bonusValue}点)
-                        </div>
-                    )}
+                    </p>
+                    <p
+                        style={{
+                            marginTop: "2rem",
+                            fontSize: "1rem",
+                            color: "pink",
+                        }}>
+                        {renderGameState()}
+                    </p>
                 </>
             )}
 
-            {/* 游戏结束界面 */}
-            {uiState.gameState === "ended" && (
-                <div className={styles.endContainer}>
-                    <h1 className={styles.endTitle}>游戏结束</h1>
-                    <div className={styles.summaryContainer}>
-                        <h2 className={styles.summaryTitle}>
-                            正在生成结算信息...
-                        </h2>
-                        <p>请稍候</p>
-                    </div>
+            {gameState === "ended" && (
+                <div>
+                    <h2>游戏结束!</h2>
+                    <p>正在生成结算信息...</p>
                 </div>
             )}
+
+            {/* 隐藏的音效元素 */}
+            <div style={{ display: "none" }}>
+                <audio ref={bgAudioRef} src={bgSound} preload="auto" />
+                <audio ref={rollAudioRef} src={rollSound} preload="auto" />
+                <audio ref={readyAudioRef} src={readySound} preload="auto" />
+                <audio ref={switchAudioRef} src={switchSound} preload="auto" />
+                <audio ref={wrongAudioRef} src={wrongSound} preload="auto" />
+                <audio ref={timerAudioRef} src={timerSound} preload="auto" />
+                <audio
+                    ref={levelUpAudioRef}
+                    src={levelUpSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={victoryAudioRef}
+                    src={victorySound}
+                    preload="auto"
+                />
+                <audio ref={failAudioRef} src={failSound} preload="auto" />
+            </div>
         </div>
     );
 };
