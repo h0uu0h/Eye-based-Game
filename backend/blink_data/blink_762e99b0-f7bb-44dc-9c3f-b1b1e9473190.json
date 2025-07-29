@@ -1,0 +1,32 @@
+{
+  "game_id": "762e99b0-f7bb-44dc-9c3f-b1b1e9473190",
+  "game_type": "maze",
+  "start_time": "2025-07-28T18:43:24.972507",
+  "end_time": "2025-07-28T18:43:32.547659",
+  "total_blinks": 3,
+  "left_total_blinks": 0,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-07-28T18:43:25.571831",
+      "min_ear": 0.0755,
+      "avg_ear": 0.2226,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-28T18:43:29.708189",
+      "min_ear": 0.076,
+      "avg_ear": 0.2581,
+      "duration": 4.136,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-28T18:43:31.356558",
+      "min_ear": 0.1098,
+      "avg_ear": 0.3154,
+      "duration": 1.648,
+      "type": "full"
+    }
+  ]
+}

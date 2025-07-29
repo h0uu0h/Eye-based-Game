@@ -16,20 +16,24 @@ import victorySound from "/sounds/maze/victory.mp3";
 import failSound from "/sounds/maze/fail.mp3";
 
 const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
-    // ================ 可配置参数 ================
+    // ================ 游戏配置 ================
     const config = {
-        closeEyeTime: [2, 3, 4, 5], // 闭眼时间范围
-        blinkWindow: 3000, // 眨眼时间窗口
-        timeReward: 1000, // 每次奖励时间
+        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+        blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
+        timeReward: 1000, // 每次奖励时间 (毫秒)
         turnSequence: ["right", "left", "right"], // 转向顺序
-        voiceDelay: 1000, // 语音延迟
-        totalTime: 30000, // 总游戏时间
+        voiceDelay: 1000, // 语音提示延迟 (毫秒)
+        promptTimeout: 1000, // 操作提示超时 (毫秒)
+        totalTime: 30000, // 总游戏时间 (毫秒)
     };
 
-    // ================ 状态管理 ================
-    const gameStatsRef = useRef({
-        totalTime: 0,
-        blinkCount: 0,
+    // ================ 游戏状态 ================
+    const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkWindow, turning, success, fail
+    const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
+    const [blinkCount, setBlinkCount] = useState(0);
+    const [blinkInWindow, setBlinkInWindow] = useState(0);
+    const [stats, setStats] = useState({
+        totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
         wrongTurns: 0,
@@ -37,51 +41,52 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         timeBonus: 0,
     });
 
-    const [gameState, setGameState] = useState("intro"); // intro, waiting, playing, direction, ended
-    const [currentStep, setCurrentStep] = useState(0);
-    const [blinkInWindow, setBlinkInWindow] = useState(0);
-    const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
-    const [blinkCount, setBlinkCount] = useState(0);
-    const [leftBlinks, setLeftBlinks] = useState(0);
-    const [rightBlinks, setRightBlinks] = useState(0);
-    const [wrongTurns, setWrongTurns] = useState(0);
-    const [eyeState, setEyeState] = useState("open");
-
     // ================ Refs ================
     const socket = useRef(null);
-    const countdownTimerRef = useRef(null);
-    const moveTimerRef = useRef(null);
-    const directionTimerRef = useRef(null);
-    const blinkWindowTimerRef = useRef(null);
-    const closeEyeStartRef = useRef(0);
-    const lastBlinkTimeRef = useRef(0);
-    const startGameDebounceRef = useRef(null);
-    const gameStateRef = useRef(gameState);
-    const currentStepRef = useRef(currentStep);
-    const blinkInWindowRef = useRef(blinkInWindow);
-    const accumulatedCloseEyeTimeRef = useRef(0); // 累计闭眼时间
-    const wallTimeTargetRef = useRef(0); // 当前目标闭眼时长（随机值）
-    const hasHitWallRef = useRef(false); // 是否已经撞墙进入眨眼阶段
-    const isFootstepPlayingRef = useRef(false);
-    const wallCheckTimerRef = useRef(null);
+    const currentTurn = useRef(0);
+    const statsRef = useRef({
+        totalBlinks: 0,
+        leftBlinks: 0,
+        rightBlinks: 0,
+        wrongTurns: 0,
+        closeEyeDuration: 0,
+        timeBonus: 0,
+    });
+    const gameTimers = useRef({
+        countdown: null,
+        move: null,
+        prompt: null,
+        blinkWindow: null,
+        wallCheck: null,
+    });
+    const gameState = useRef({
+        phase: "intro",
+        eyeState: "open",
+        closeEyeStart: 0,
+        accumulatedCloseTime: 0,
+        targetCloseTime: 0,
+        lastBlinkTime: 0,
+        isSpeaking: false,
+        isFootstepPlaying: false,
+    });
 
     // 同步ref状态
     useEffect(() => {
-        gameStateRef.current = gameState;
-        currentStepRef.current = currentStep;
-        blinkInWindowRef.current = blinkInWindow;
-    }, [gameState, currentStep, blinkInWindow]);
+        gameState.current.phase = gamePhase;
+    }, [gamePhase]);
 
     // 音效Refs
-    const bgAudioRef = useRef(null);
-    const footstepAudioRef = useRef(null);
-    const wallAudioRef = useRef(null);
-    const turnAudioRef = useRef(null);
-    const wrongAudioRef = useRef(null);
-    const timerAudioRef = useRef(null);
-    const levelUpAudioRef = useRef(null);
-    const victoryAudioRef = useRef(null);
-    const failAudioRef = useRef(null);
+    const audioRefs = useRef({
+        bg: null,
+        footstep: null,
+        wall: null,
+        turn: null,
+        wrong: null,
+        timer: null,
+        levelUp: null,
+        victory: null,
+        fail: null,
+    });
 
     // ================ 核心函数 ================
     const speak = useCallback((text) => {
@@ -92,73 +97,98 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         window.speechSynthesis.speak(utterance);
     }, []);
 
-    // 新增 speakAndWait 函数
     const speakAndWait = useCallback(async (text) => {
         return new Promise((resolve) => {
             if (!window.speechSynthesis) return resolve();
 
+            gameState.current.isSpeaking = true;
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = "zh-CN";
-            utterance.onend = () => setTimeout(resolve, 200);
+            utterance.onend = () => {
+                setTimeout(() => {
+                    gameState.current.isSpeaking = false;
+                    resolve();
+                }, 200);
+            };
             window.speechSynthesis.speak(utterance);
         });
     }, []);
 
+    const playSound = useCallback((soundName, options = {}) => {
+        const audio = audioRefs.current[soundName];
+        if (!audio) return;
+
+        if (options.loop) audio.loop = true;
+        if (options.volume) audio.volume = options.volume;
+
+        audio.currentTime = 0;
+        audio.play().catch(console.warn);
+    }, []);
+
+    const stopSound = useCallback((soundName) => {
+        const audio = audioRefs.current[soundName];
+        if (!audio) return;
+
+        audio.pause();
+        audio.currentTime = 0;
+    }, []);
+
     const stopAllSounds = useCallback(() => {
-        [
-            bgAudioRef,
-            footstepAudioRef,
-            wallAudioRef,
-            turnAudioRef,
-            wrongAudioRef,
-            timerAudioRef,
-            levelUpAudioRef,
-            victoryAudioRef,
-            failAudioRef,
-        ].forEach((ref) => {
-            if (ref.current) {
-                ref.current.pause();
-                ref.current.currentTime = 0;
+        Object.values(audioRefs.current).forEach((audio) => {
+            if (audio) {
+                audio.pause();
+                audio.currentTime = 0;
             }
         });
     }, []);
 
     // ================ 游戏逻辑 ================
     const startGame = useCallback(async () => {
-        if (gameStateRef.current !== "intro") return;
+        if (gameState.current.phase !== "intro") return;
+        // 清除所有计时器
+        Object.values(gameTimers.current).forEach((timer) => {
+            if (timer) clearTimeout(timer);
+        });
 
-        // 重置游戏数据
-        gameStatsRef.current = {
-            totalTime: 0,
-            blinkCount: 0,
+        // 重置游戏状态
+        setGamePhase("moving");
+        currentTurn.current = 0;
+        setRemainingTime(config.totalTime / 1000);
+        setBlinkCount(0);
+        setBlinkInWindow(0);
+        statsRef.current = {
+            totalBlinks: 0,
             leftBlinks: 0,
             rightBlinks: 0,
             wrongTurns: 0,
             closeEyeDuration: 0,
             timeBonus: 0,
         };
-        setCurrentStep(0);
-        setBlinkInWindow(0);
-        setGameState("waiting");
-        setRemainingTime(config.totalTime / 1000);
-        setBlinkCount(0);
-        setLeftBlinks(0);
-        setRightBlinks(0);
-        setWrongTurns(0);
+        setStats(statsRef.current); // 刷新界面
+
+        gameState.current = {
+            ...gameState.current,
+            phase: "moving",
+            eyeState: "open",
+            closeEyeStart: 0,
+            accumulatedCloseTime: 0,
+            targetCloseTime: 0,
+            lastBlinkTime: 0,
+            isSpeaking: false,
+            isFootstepPlaying: false,
+        };
 
         // 播放背景音乐
-        bgAudioRef.current.loop = true;
-        bgAudioRef.current.volume = 0.3;
-        bgAudioRef.current.play().catch(console.warn);
+        playSound("bg", { loop: true, volume: 0.3 });
 
         // 游戏开始语音
         await speakAndWait(
-            "您的好朋友正在迷宫的另一侧等待救援，根据声音提示尽快过去吧！闭双眼开始计时。"
+            "您的好友正在迷宫的另一侧等待救援，根据声音线索尽快过去吧！闭眼开始前进，并在听到提示后停止。"
         );
 
         // 开始倒计时
-        countdownTimerRef.current = setInterval(() => {
+        gameTimers.current.countdown = setInterval(() => {
             setRemainingTime((prev) => {
                 const newTime = prev - 1;
                 if (newTime <= 0) {
@@ -167,267 +197,313 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 }
                 return newTime;
             });
-
-            gameStatsRef.current.totalTime += 1000;
-            if (gameStatsRef.current.totalTime >= config.totalTime) {
-                endGame(false);
-            }
         }, 1000);
-    }, [speakAndWait]);
+    }, [speakAndWait, playSound]);
 
     const startMoving = useCallback(() => {
-        // 记录闭眼起始时间
-        closeEyeStartRef.current = Date.now();
+        if (gameState.current.phase !== "moving") return;
 
-        // 启动脚步声（只播放一次）
-        if (!isFootstepPlayingRef.current) {
-            footstepAudioRef.current.currentTime = 0;
-            footstepAudioRef.current.loop = true;
-            footstepAudioRef.current
-                .play()
-                .then(() => {
-                    isFootstepPlayingRef.current = true;
-                })
-                .catch((e) => {
-                    console.warn("Footstep play error:", e);
-                });
+        // 记录闭眼开始时间
+        gameState.current.closeEyeStart = Date.now();
+        gameState.current.eyeState = "closed";
+
+        // 播放脚步声
+        if (!gameState.current.isFootstepPlaying) {
+            playSound("footstep", { loop: true });
+            gameState.current.isFootstepPlaying = true;
         }
 
-        // 进入 playing 状态
-        if (gameStateRef.current === "waiting") {
-            setGameState("playing");
+        // 设置随机闭眼目标时间
+        if (gameState.current.targetCloseTime === 0) {
+            const randomTime =
+                config.closeEyeTime[
+                    Math.floor(Math.random() * config.closeEyeTime.length)
+                ];
+            gameState.current.targetCloseTime = randomTime * 1000;
+        }
 
-            // 只生成一次目标时间（毫秒）
-            if (!wallTimeTargetRef.current) {
-                wallTimeTargetRef.current =
-                    config.closeEyeTime[
-                        Math.floor(Math.random() * config.closeEyeTime.length)
-                    ] * 1000; // 秒转毫秒
+        // 检查是否到达撞墙时间
+        gameTimers.current.wallCheck = setInterval(() => {
+            const currentDuration =
+                Date.now() - gameState.current.closeEyeStart;
+            const totalDuration =
+                gameState.current.accumulatedCloseTime + currentDuration;
+
+            if (totalDuration >= gameState.current.targetCloseTime) {
+                hitWall();
             }
-
-            hasHitWallRef.current = false;
-        }
-
-        // 设置撞墙检测定时器
-        if (!wallCheckTimerRef.current) {
-            wallCheckTimerRef.current = setInterval(() => {
-                const now = Date.now();
-                const currentDuration = now - closeEyeStartRef.current;
-                const totalDuration =
-                    accumulatedCloseEyeTimeRef.current + currentDuration;
-
-                if (
-                    totalDuration >= wallTimeTargetRef.current &&
-                    !hasHitWallRef.current
-                ) {
-                    hasHitWallRef.current = true;
-
-                    // 清除定时器
-                    clearInterval(wallCheckTimerRef.current);
-                    wallCheckTimerRef.current = null;
-
-                    // 停止脚步声
-                    footstepAudioRef.current.pause();
-                    footstepAudioRef.current.currentTime = 0;
-                    isFootstepPlayingRef.current = false;
-
-                    wallAudioRef.current.play();
-                    // speak("睁双眼停止移动");
-
-                    setTimeout(() => {
-                        setGameState("direction");
-                        speak("眨眼多次提示方向和奖励时间");
-                        directionTimerRef.current = setTimeout(() => {
-                            if (gameStateRef.current === "direction") {
-                                startBlinkWindow();
-                            }
-                        }, config.voiceDelay);
-                    }, 500);
-                }
-            }, 100); // 每 100ms 检查一次
-        }
-    }, [speak]);
+        }, 100);
+    }, [playSound]);
 
     const stopMoving = useCallback(() => {
-        if (gameStateRef.current !== "playing") return;
+        if (gameState.current.phase !== "moving") return;
 
         // 停止脚步声
-        if (isFootstepPlayingRef.current) {
-            footstepAudioRef.current.pause();
-            footstepAudioRef.current.currentTime = 0;
-            isFootstepPlayingRef.current = false;
-        }
+        stopSound("footstep");
+        gameState.current.isFootstepPlaying = false;
 
-        // 清除撞墙检测定时器
-        if (wallCheckTimerRef.current) {
-            clearInterval(wallCheckTimerRef.current);
-            wallCheckTimerRef.current = null;
-        }
+        // 清除撞墙检查定时器
+        clearInterval(gameTimers.current.wallCheck);
+        gameTimers.current.wallCheck = null;
 
         // 累加闭眼时间
-        const closeDuration = Date.now() - closeEyeStartRef.current;
-        accumulatedCloseEyeTimeRef.current += closeDuration;
-        gameStatsRef.current.closeEyeDuration += closeDuration;
+        const closeDuration = Date.now() - gameState.current.closeEyeStart;
+        gameState.current.accumulatedCloseTime += closeDuration;
+        statsRef.current.closeEyeDuration += closeDuration;
+        setStats((prev) => ({ ...prev, closeEyeDuration: statsRef.current.closeEyeDuration }));
 
-        console.log(
-            "closeDuration",
-            closeDuration,
-            accumulatedCloseEyeTimeRef.current,
-            wallTimeTargetRef.current
-        );
+        gameState.current.eyeState = "open";
+    }, [stopSound]);
 
-        // 如果在 stop 时恰好达到撞墙条件，也做一遍兜底检查
-        if (
-            accumulatedCloseEyeTimeRef.current >= wallTimeTargetRef.current &&
-            !hasHitWallRef.current
-        ) {
-            hasHitWallRef.current = true;
+    const hitWall = useCallback(() => {
+        // 清除定时器
+        clearInterval(gameTimers.current.wallCheck);
+        gameTimers.current.wallCheck = null;
 
-            wallAudioRef.current.play();
-            speak("睁双眼停止移动");
+        // 停止脚步声
+        stopSound("footstep");
+        gameState.current.isFootstepPlaying = false;
 
-            setTimeout(() => {
-                setGameState("direction");
-                speak("眨眼多次提示方向和奖励时间");
-                directionTimerRef.current = setTimeout(() => {
-                    if (gameStateRef.current === "direction") {
+        // 播放撞墙音效
+        playSound("wall");
+
+        // 累加闭眼时间
+        const closeDuration = Date.now() - gameState.current.closeEyeStart;
+        gameState.current.accumulatedCloseTime += closeDuration;
+        statsRef.current.closeEyeDuration += closeDuration;
+        setStats((prev) => ({ ...prev, closeEyeDuration: statsRef.current.closeEyeDuration }));
+
+        setGamePhase("wallHit");
+        speak("睁双眼停止移动");
+
+        // 提示玩家眨眼进入奖励窗口
+        gameTimers.current.prompt = setTimeout(() => {
+            if (gameState.current.phase === "wallHit") {
+                speak("眨眼两次提示方向和奖励时间");
+                setGamePhase("blinkPrompt");
+
+                // 如果1秒内没有眨眼两次，自动进入奖励窗口
+                gameTimers.current.prompt = setTimeout(() => {
+                    if (gameState.current.phase === "blinkPrompt") {
                         startBlinkWindow();
                     }
-                }, config.voiceDelay);
-            }, 500);
-        }
-    }, [speak]);
+                }, config.promptTimeout);
+            }
+        }, config.voiceDelay);
+    }, [speak, playSound, stopSound]);
 
     const startBlinkWindow = useCallback(() => {
-        setGameState("blinkWindow");
+        setGamePhase("blinkWindow");
         setBlinkInWindow(0);
-        timerAudioRef.current.play();
+        playSound("timer");
 
-        blinkWindowTimerRef.current = setTimeout(() => {
+        // 3秒后结束奖励窗口
+        gameTimers.current.blinkWindow = setTimeout(() => {
             endBlinkWindow();
-        }, config.blinkWindow);
-    }, []);
+        }, config.blinkWindowDuration);
+    }, [playSound]);
 
     const endBlinkWindow = useCallback(() => {
-        timerAudioRef.current.pause();
-        setGameState("direction");
+        stopSound("timer");
 
         // 计算时间奖励
-        const bonus =
-            Math.floor(blinkInWindowRef.current / 2) * config.timeReward;
-        gameStatsRef.current.timeBonus += bonus;
+        const bonus = Math.floor(blinkInWindow / 2) * config.timeReward;
+        statsRef.current.timeBonus += bonus;
+        setStats((prev) => ({ ...prev, timeBonus: statsRef.current.timeBonus }));
 
-        const direction = config.turnSequence[currentStepRef.current];
-        speak(`前方${direction === "left" ? "左" : "右"}转`);
-    }, [speak]);
+        // 更新剩余时间
+        setRemainingTime((prev) => prev + bonus / 1000);
+
+        // 提示转向方向
+        const direction = config.turnSequence[currentTurn.current];
+        speak(`往${direction === "left" ? "左" : "右"}转向`);
+        setGamePhase("turning");
+
+        // 如果1秒内没有正确眨眼，提示玩家
+        gameTimers.current.prompt = setTimeout(() => {
+            if (gameState.current.phase === "turning") {
+                const direction = config.turnSequence[currentTurn.current];
+                speak(
+                    `${direction === "left" ? "左" : "右"}眨眼${
+                        direction === "left" ? "左" : "右"
+                    }转`
+                );
+            }
+        }, config.promptTimeout);
+    }, [speak, stopSound, currentTurn, blinkInWindow]);
 
     const handleCorrectTurn = useCallback(() => {
-        const direction = config.turnSequence[currentStepRef.current];
-        turnAudioRef.current.play();
+        const direction = config.turnSequence[currentTurn.current];
+        playSound("turn");
 
         // 更新统计
+        statsRef.current.totalBlinks += 1;
         if (direction === "left") {
-            setLeftBlinks((prev) => prev + 1);
-            gameStatsRef.current.leftBlinks++;
+            statsRef.current.leftBlinks += 1;
         } else {
-            setRightBlinks((prev) => prev + 1);
-            gameStatsRef.current.rightBlinks++;
+            statsRef.current.rightBlinks += 1;
         }
+        setStats({ ...statsRef.current });
 
-        // 检查是否完成
-        if (currentStepRef.current >= config.turnSequence.length - 1) {
+        // 检查是否完成所有转向
+        if (currentTurn.current >= config.turnSequence.length - 1) {
             endGame(true);
         } else {
-            accumulatedCloseEyeTimeRef.current = 0;
-            wallTimeTargetRef.current = 0;
-            hasHitWallRef.current = false;
-            if (wallCheckTimerRef.current) {
-                clearInterval(wallCheckTimerRef.current);
-                wallCheckTimerRef.current = null;
-            }
-            setCurrentStep((prev) => prev + 1);
-            setGameState("waiting");
+            // 重置移动状态
+            gameState.current.accumulatedCloseTime = 0;
+            gameState.current.targetCloseTime = 0;
+
+            currentTurn.current += 1;
+            setGamePhase("moving");
             speak("闭双眼继续前行");
         }
-    }, [speak]);
+    }, [speak, playSound]);
 
     const handleWrongTurn = useCallback(() => {
-        wrongAudioRef.current.play();
-        setWrongTurns((prev) => prev + 1);
-        gameStatsRef.current.wrongTurns++;
+        playSound("wrong");
+        statsRef.current.totalBlinks += 1;
+        statsRef.current.wrongTurns += 1;
+        setStats({ ...statsRef.current });
 
-        const direction = config.turnSequence[currentStepRef.current];
+        const direction = config.turnSequence[currentTurn.current];
         speak(
             `${direction === "left" ? "左" : "右"}眨眼${
                 direction === "left" ? "左" : "右"
             }转`
         );
-    }, [speak]);
+    }, [speak, playSound]);
 
     const endGame = useCallback(
         (isSuccess) => {
             // 清理所有计时器
-            clearInterval(countdownTimerRef.current);
-            clearTimeout(moveTimerRef.current);
-            clearTimeout(directionTimerRef.current);
-            clearTimeout(blinkWindowTimerRef.current);
-            clearTimeout(startGameDebounceRef.current);
+            Object.values(gameTimers.current).forEach((timer) => {
+                if (timer) clearTimeout(timer);
+            });
 
             // 停止所有音效
             stopAllSounds();
 
             // 播放结束音效
-            if (isSuccess) {
-                victoryAudioRef.current.play();
-            } else {
-                failAudioRef.current.play();
-            }
+            playSound(isSuccess ? "victory" : "fail");
 
             // 准备结算数据
             const finalStats = {
-                ...gameStatsRef.current,
+                ...statsRef.current,
                 isSuccess,
-                finalTime:
-                    (config.totalTime - gameStatsRef.current.timeBonus) / 1000,
+                finalTime: (config.totalTime - statsRef.current.timeBonus) / 1000,
                 mode: "maze",
                 timestamp: Date.now(),
             };
 
-            setGameState("ended");
+            setGamePhase(isSuccess ? "success" : "fail");
             onGameEnd(finalStats);
         },
-        [onGameEnd, stopAllSounds]
+        [onGameEnd, stopAllSounds, playSound]
     );
 
     // ================ 事件处理 ================
     const handleBlinkEvent = useCallback(
         (data) => {
-            setBlinkCount(data.total);
-            gameStatsRef.current.blinkCount = data.total;
+            const newTotalBlinks = data.total;
+            setBlinkCount(newTotalBlinks);
+            statsRef.current.totalBlinks = newTotalBlinks;
+            setStats((prev) => ({ ...prev, totalBlinks: newTotalBlinks }));
 
-            // 开始游戏
-            if (gameStateRef.current === "intro" && data.total >= 2) {
-                clearTimeout(startGameDebounceRef.current);
-                startGameDebounceRef.current = setTimeout(startGame, 300);
+            // 只在 intro 阶段处理开始游戏
+            if (gameState.current.phase === "intro" && newTotalBlinks >= 2) {
+                startGame();
                 return;
             }
 
-            // 眨眼窗口
-            if (gameStateRef.current === "blinkWindow") {
+            // 在 blinkPrompt 阶段检测是否眨眼两次
+            if (
+                gameState.current.phase === "blinkPrompt" &&
+                newTotalBlinks >= 2
+            ) {
+                clearTimeout(gameTimers.current.prompt);
+                startBlinkWindow();
+                return;
+            }
+
+            // 在 blinkWindow 阶段记录眨眼次数
+            if (gameState.current.phase === "blinkWindow") {
                 setBlinkInWindow((prev) => prev + 1);
-                levelUpAudioRef.current.play();
+                playSound("levelUp");
             }
         },
-        [handleCorrectTurn, handleWrongTurn, startGame]
+        [startGame, startBlinkWindow, playSound]
+    );
+
+    // 修改 handleLeftBlink 和 handleRightBlink 函数
+    const handleLeftBlink = useCallback(
+        (data) => {
+            // 只在特定阶段处理眨眼
+            if (
+                !["turning", "blinkWindow", "blinkPrompt"].includes(
+                    gameState.current.phase
+                )
+            ) {
+                return;
+            }
+
+            statsRef.current.totalBlinks += 1;
+            setStats((prev) => ({ ...prev, totalBlinks: statsRef.current.totalBlinks }));
+
+            if (gameState.current.phase === "turning") {
+                const now = Date.now();
+                if (now - gameState.current.lastBlinkTime < 300) return;
+                gameState.current.lastBlinkTime = now;
+
+                const expectedDirection =
+                    config.turnSequence[currentTurn.current];
+                if (expectedDirection === "left") {
+                    handleCorrectTurn();
+                } else {
+                    handleWrongTurn();
+                }
+            }
+        },
+        [handleCorrectTurn, handleWrongTurn]
+    );
+
+    const handleRightBlink = useCallback(
+        (data) => {
+            // 只在特定阶段处理眨眼
+            if (
+                !["turning", "blinkWindow", "blinkPrompt"].includes(
+                    gameState.current.phase
+                )
+            ) {
+                return;
+            }
+
+            statsRef.current.totalBlinks += 1;
+            setStats((prev) => ({ ...prev, totalBlinks: statsRef.current.totalBlinks }));
+
+            if (gameState.current.phase === "turning") {
+                const now = Date.now();
+                if (now - gameState.current.lastBlinkTime < 300) return;
+                gameState.current.lastBlinkTime = now;
+
+                const expectedDirection =
+                    config.turnSequence[currentTurn.current];
+                if (expectedDirection === "right") {
+                    handleCorrectTurn();
+                } else {
+                    handleWrongTurn();
+                }
+            }
+        },
+        [handleCorrectTurn, handleWrongTurn]
     );
 
     const handleEyeState = useCallback(
         (data) => {
-            setEyeState(data.status);
-            if (
-                gameStateRef.current === "waiting" ||
-                gameStateRef.current === "playing"
-            ) {
+            if (gameState.current.isSpeaking) return;
+
+            gameState.current.eyeState = data.status;
+
+            if (gameState.current.phase === "moving") {
                 if (data.status === "closed") {
                     startMoving();
                 } else if (data.status === "open") {
@@ -436,71 +512,6 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             }
         },
         [startMoving, stopMoving]
-    );
-
-    // 新增：处理左右眼眨眼事件
-    const handleLeftBlink = useCallback(
-        (data) => {
-            setBlinkCount((prev) => prev + 1);
-            gameStatsRef.current.blinkCount++;
-
-            if (
-                gameStateRef.current === "intro" &&
-                gameStatsRef.current.blinkCount >= 2
-            ) {
-                clearTimeout(startGameDebounceRef.current);
-                startGameDebounceRef.current = setTimeout(startGame, 300);
-                return;
-            }
-
-            // 在方向选择状态，左眼眨眼表示左转
-            if (gameStateRef.current === "direction") {
-                const now = Date.now();
-                if (now - lastBlinkTimeRef.current < 300) return;
-                lastBlinkTimeRef.current = now;
-
-                const expectedDirection =
-                    config.turnSequence[currentStepRef.current];
-                if (expectedDirection === "left") {
-                    handleCorrectTurn();
-                } else if (expectedDirection === "right") {
-                    handleWrongTurn();
-                }
-            }
-        },
-        [startGame, handleCorrectTurn, handleWrongTurn]
-    );
-
-    const handleRightBlink = useCallback(
-        (data) => {
-            setBlinkCount((prev) => prev + 1);
-            gameStatsRef.current.blinkCount++;
-
-            if (
-                gameStateRef.current === "intro" &&
-                gameStatsRef.current.blinkCount >= 2
-            ) {
-                clearTimeout(startGameDebounceRef.current);
-                startGameDebounceRef.current = setTimeout(startGame, 300);
-                return;
-            }
-
-            // 在方向选择状态，右眼眨眼表示右转
-            if (gameStateRef.current === "direction") {
-                const now = Date.now();
-                if (now - lastBlinkTimeRef.current < 300) return;
-                lastBlinkTimeRef.current = now;
-
-                const expectedDirection =
-                    config.turnSequence[currentStepRef.current];
-                if (expectedDirection === "right") {
-                    handleCorrectTurn();
-                } else if (expectedDirection === "left") {
-                    handleWrongTurn();
-                }
-            }
-        },
-        [startGame, handleCorrectTurn, handleWrongTurn]
     );
 
     // ================ 生命周期 ================
@@ -532,28 +543,40 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     ]);
 
     useEffect(() => {
-        if (shouldEnd && gameStateRef.current !== "ended") {
+        if (
+            shouldEnd &&
+            gameState.current.phase !== "success" &&
+            gameState.current.phase !== "fail"
+        ) {
             endGame(false);
         }
     }, [shouldEnd, endGame]);
 
-    // 渲染游戏状态文本
-    const renderGameState = () => {
-        switch (gameState) {
+    // ================ 渲染辅助函数 ================
+    const renderGameStateText = () => {
+        switch (gamePhase) {
             case "intro":
                 return "请眨双眼两次开始游戏";
-            case "waiting":
-                return eyeState === "closed"
-                    ? "移动中...闭双眼继续前行"
+            case "moving":
+                return gameState.current.eyeState === "closed"
+                    ? "移动中...睁双眼停止"
                     : "请闭双眼开始移动";
-            case "playing":
-                return "移动中...睁双眼停止";
-            case "direction":
-                return "请选择方向：左眨眼左转，右眨眼右转";
+            case "wallHit":
+                return "到达路口，请睁双眼";
+            case "blinkPrompt":
+                return "请眨双眼两次获取方向提示";
             case "blinkWindow":
-                return `快速眨眼增加时间奖励！(${blinkInWindow}次)`;
-            case "ended":
-                return "游戏结束";
+                return `快速眨眼获取时间奖励！(${blinkInWindow}次)`;
+            case "turning":
+                return `请${
+                    config.turnSequence[currentTurn.current] === "left"
+                        ? "左"
+                        : "右"
+                }眨眼转向`;
+            case "success":
+                return "救援成功！";
+            case "fail":
+                return "救援失败";
             default:
                 return "";
         }
@@ -582,7 +605,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             </p>
 
             {/* 等待开始界面（眨双眼两次） */}
-            {gameState === "intro" && (
+            {gamePhase === "intro" && (
                 <div>
                     <p>
                         闭双眼：向前移动
@@ -605,60 +628,87 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 </div>
             )}
 
-            {/* 游戏进行中界面 */}
-            {gameState !== "intro" && gameState !== "ended" && (
-                <>
-                    <h1>{remainingTime}秒</h1>
-                    <p>
-                        闭双眼：向前移动
-                        <br />
-                        睁双眼：停止移动
-                        <br />
-                        左眨眼：左转
-                        <br />
-                        右眨眼：右转
-                    </p>
-                    <p
-                        style={{
-                            marginTop: "2rem",
-                            fontSize: "1rem",
-                            color: "pink",
-                        }}>
-                        {renderGameState()}
-                    </p>
-                </>
-            )}
+            {gamePhase !== "intro" &&
+                gamePhase !== "success" &&
+                gamePhase !== "fail" && (
+                    <>
+                        <h1>{remainingTime}秒</h1>
+                        <p>
+                            闭双眼：向前移动
+                            <br />
+                            睁双眼：停止移动
+                            <br />
+                            左眨眼：左转
+                            <br />
+                            右眨眼：右转
+                        </p>
+                        <p
+                            style={{
+                                marginTop: "2rem",
+                                fontSize: "1rem",
+                                color: "pink",
+                            }}>
+                            {renderGameStateText()}
+                        </p>
+                    </>
+                )}
 
-            {gameState === "ended" && (
-                <div>
-                    <h2>游戏结束!</h2>
+            {(gamePhase === "success" || gamePhase === "fail") && (
+                <div className="end-panel">
+                    <h2>
+                        {gamePhase === "success" ? "救援成功!" : "救援失败"}
+                    </h2>
                     <p>正在生成结算信息...</p>
                 </div>
             )}
 
             {/* 隐藏的音效元素 */}
             <div style={{ display: "none" }}>
-                <audio ref={bgAudioRef} src={bgSound} preload="auto" />
                 <audio
-                    ref={footstepAudioRef}
+                    ref={(el) => (audioRefs.current.bg = el)}
+                    src={bgSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={(el) => (audioRefs.current.footstep = el)}
                     src={footstepSound}
                     preload="auto"
                 />
-                <audio ref={wallAudioRef} src={wallSound} preload="auto" />
-                <audio ref={turnAudioRef} src={turnSound} preload="auto" />
-                <audio ref={wrongAudioRef} src={wrongSound} preload="auto" />
-                <audio ref={timerAudioRef} src={timerSound} preload="auto" />
                 <audio
-                    ref={levelUpAudioRef}
+                    ref={(el) => (audioRefs.current.wall = el)}
+                    src={wallSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={(el) => (audioRefs.current.turn = el)}
+                    src={turnSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={(el) => (audioRefs.current.wrong = el)}
+                    src={wrongSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={(el) => (audioRefs.current.timer = el)}
+                    src={timerSound}
+                    preload="auto"
+                />
+                <audio
+                    ref={(el) => (audioRefs.current.levelUp = el)}
                     src={levelUpSound}
                     preload="auto"
                 />
                 <audio
-                    ref={victoryAudioRef}
+                    ref={(el) => (audioRefs.current.victory = el)}
                     src={victorySound}
                     preload="auto"
                 />
-                <audio ref={failAudioRef} src={failSound} preload="auto" />
+                <audio
+                    ref={(el) => (audioRefs.current.fail = el)}
+                    src={failSound}
+                    preload="auto"
+                />
             </div>
         </div>
     );
