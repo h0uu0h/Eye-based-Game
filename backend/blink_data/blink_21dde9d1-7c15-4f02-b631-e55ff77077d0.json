@@ -1,0 +1,186 @@
+{
+  "game_id": "21dde9d1-7c15-4f02-b631-e55ff77077d0",
+  "game_type": "dice",
+  "start_time": "2025-07-30T20:41:06.483624",
+  "end_time": "2025-07-30T20:41:54.902917",
+  "total_blinks": 25,
+  "left_total_blinks": 1,
+  "right_total_blinks": 7,
+  "blink_details": [
+    {
+      "timestamp": "2025-07-30T20:41:11.662447",
+      "min_ear": 0.0477,
+      "avg_ear": 0.1545,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:12.420163",
+      "min_ear": 0.0604,
+      "avg_ear": 0.3182,
+      "duration": 0.758,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:14.597974",
+      "min_ear": 0.0811,
+      "avg_ear": 0.2856,
+      "duration": 2.178,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:16.179357",
+      "min_ear": 0.0968,
+      "avg_ear": 0.2441,
+      "duration": 1.581,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:17.249212",
+      "min_ear": 0.0574,
+      "avg_ear": 0.3089,
+      "duration": 1.07,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:19.029668",
+      "min_ear": 0.0861,
+      "avg_ear": 0.3312,
+      "duration": 1.78,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:23.909884",
+      "min_ear": 0.0766,
+      "avg_ear": 0.1615,
+      "duration": 4.88,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:28.058806",
+      "min_ear": 0.076,
+      "avg_ear": 0.2878,
+      "duration": 4.149,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:29.392155",
+      "min_ear": 0.084,
+      "avg_ear": 0.2982,
+      "duration": 1.333,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:29.841728",
+      "min_ear": 0.0833,
+      "avg_ear": 0.2914,
+      "duration": 0.45,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:30.376349",
+      "min_ear": 0.091,
+      "avg_ear": 0.3006,
+      "duration": 0.535,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:30.766718",
+      "min_ear": 0.0845,
+      "avg_ear": 0.2492,
+      "duration": 0.39,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:31.239866",
+      "min_ear": 0.0837,
+      "avg_ear": 0.3086,
+      "duration": 0.473,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:41.328969",
+      "min_ear": 0.0798,
+      "avg_ear": 0.1446,
+      "duration": 10.089,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:42.617379",
+      "min_ear": 0.0903,
+      "avg_ear": 0.2938,
+      "duration": 1.288,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:43.150393",
+      "min_ear": 0.0848,
+      "avg_ear": 0.2224,
+      "duration": 0.533,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:43.744185",
+      "min_ear": 0.0807,
+      "avg_ear": 0.2513,
+      "duration": 0.594,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:44.332306",
+      "min_ear": 0.0917,
+      "avg_ear": 0.1856,
+      "duration": 0.588,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:44.924181",
+      "min_ear": 0.0921,
+      "avg_ear": 0.2968,
+      "duration": 0.592,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:45.452320",
+      "min_ear": 0.0905,
+      "avg_ear": 0.2717,
+      "duration": 0.528,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:51.720033",
+      "min_ear": 0.084,
+      "avg_ear": 0.2237,
+      "duration": 6.268,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:52.583188",
+      "min_ear": 0.0913,
+      "avg_ear": 0.2329,
+      "duration": 0.863,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:53.305115",
+      "min_ear": 0.0902,
+      "avg_ear": 0.2278,
+      "duration": 0.722,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:53.869583",
+      "min_ear": 0.0828,
+      "avg_ear": 0.1883,
+      "duration": 0.564,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T20:41:54.466066",
+      "min_ear": 0.0852,
+      "avg_ear": 0.2209,
+      "duration": 0.596,
+      "type": "full"
+    }
+  ]
+}

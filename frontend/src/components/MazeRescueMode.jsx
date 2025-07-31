@@ -28,7 +28,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
     };
 
     // ================ 游戏状态 ================
-    const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkWindow, turning, success, fail
+    const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkPrompt, blinkWindow, turning, success, fail
     const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
     const [blinkCount, setBlinkCount] = useState(0);
     const [blinkInWindow, setBlinkInWindow] = useState(0);
@@ -204,7 +204,9 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         if (gameState.current.phase !== "moving") return;
 
         // 记录闭眼开始时间
-        gameState.current.closeEyeStart = Date.now();
+        if (gameState.current.closeEyeStart === 0) {
+            gameState.current.closeEyeStart = Date.now();
+        }
         gameState.current.eyeState = "closed";
 
         // 播放脚步声
@@ -250,7 +252,10 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         const closeDuration = Date.now() - gameState.current.closeEyeStart;
         gameState.current.accumulatedCloseTime += closeDuration;
         statsRef.current.closeEyeDuration += closeDuration;
-        setStats((prev) => ({ ...prev, closeEyeDuration: statsRef.current.closeEyeDuration }));
+        setStats((prev) => ({
+            ...prev,
+            closeEyeDuration: statsRef.current.closeEyeDuration,
+        }));
 
         gameState.current.eyeState = "open";
     }, [stopSound]);
@@ -271,7 +276,10 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         const closeDuration = Date.now() - gameState.current.closeEyeStart;
         gameState.current.accumulatedCloseTime += closeDuration;
         statsRef.current.closeEyeDuration += closeDuration;
-        setStats((prev) => ({ ...prev, closeEyeDuration: statsRef.current.closeEyeDuration }));
+        setStats((prev) => ({
+            ...prev,
+            closeEyeDuration: statsRef.current.closeEyeDuration,
+        }));
 
         setGamePhase("wallHit");
         speak("睁双眼停止移动");
@@ -309,7 +317,10 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
         // 计算时间奖励
         const bonus = Math.floor(blinkInWindow / 2) * config.timeReward;
         statsRef.current.timeBonus += bonus;
-        setStats((prev) => ({ ...prev, timeBonus: statsRef.current.timeBonus }));
+        setStats((prev) => ({
+            ...prev,
+            timeBonus: statsRef.current.timeBonus,
+        }));
 
         // 更新剩余时间
         setRemainingTime((prev) => prev + bonus / 1000);
@@ -350,6 +361,7 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             endGame(true);
         } else {
             // 重置移动状态
+            gameState.current.closeEyeStart = 0;
             gameState.current.accumulatedCloseTime = 0;
             gameState.current.targetCloseTime = 0;
 
@@ -390,7 +402,8 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             const finalStats = {
                 ...statsRef.current,
                 isSuccess,
-                finalTime: (config.totalTime - statsRef.current.timeBonus) / 1000,
+                finalTime:
+                    (config.totalTime - statsRef.current.timeBonus) / 1000,
                 mode: "maze",
                 timestamp: Date.now(),
             };
@@ -415,7 +428,6 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
                 return;
             }
 
-            // 在 blinkPrompt 阶段检测是否眨眼两次
             if (
                 gameState.current.phase === "blinkPrompt" &&
                 newTotalBlinks >= 2
@@ -447,7 +459,10 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             }
 
             statsRef.current.totalBlinks += 1;
-            setStats((prev) => ({ ...prev, totalBlinks: statsRef.current.totalBlinks }));
+            setStats((prev) => ({
+                ...prev,
+                totalBlinks: statsRef.current.totalBlinks,
+            }));
 
             if (gameState.current.phase === "turning") {
                 const now = Date.now();
@@ -478,7 +493,10 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
             }
 
             statsRef.current.totalBlinks += 1;
-            setStats((prev) => ({ ...prev, totalBlinks: statsRef.current.totalBlinks }));
+            setStats((prev) => ({
+                ...prev,
+                totalBlinks: statsRef.current.totalBlinks,
+            }));
 
             if (gameState.current.phase === "turning") {
                 const now = Date.now();
@@ -505,8 +523,14 @@ const MazeRescueMode = ({ onGameEnd, shouldEnd }) => {
 
             if (gameState.current.phase === "moving") {
                 if (data.status === "closed") {
+                    if (gameState.current.closeEyeStart === 0) {
+                        gameState.current.closeEyeStart = Date.now();
+                    }
                     startMoving();
-                } else if (data.status === "open") {
+                } else if (
+                    data.status === "open" &&
+                    gameState.current.closeEyeStart !== 0
+                ) {
                     stopMoving();
                 }
             }

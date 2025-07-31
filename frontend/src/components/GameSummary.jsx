@@ -4,27 +4,35 @@ const GameSummary = ({ data, onClose }) => {
 
     const renderSummary = () => {
         const { mode } = data;
-        if (mode === "classic") {
-            const total = data.score + data.missCount;
-            return (
-                <>
-                    <p>模式：经典模式</p>
-                    <p>成功眨眼次数：{data.score}</p>
-                    <p>总眨眼尝试：{total}</p>
-                    <p>成功率：{(data.successRate * 100).toFixed(2)}%</p>
-                </>
-            );
-        }
+        // if (mode === "classic") {
+        //     const total = data.score + data.missCount;
+        //     return (
+        //         <>
+        //             <p>模式：经典模式</p>
+        //             <p>成功眨眼次数：{data.score}</p>
+        //             <p>总眨眼尝试：{total}</p>
+        //             <p>成功率：{(data.successRate * 100).toFixed(2)}%</p>
+        //         </>
+        //     );
+        // }
 
         // 在renderSummary函数中添加jump模式的结算
-        if (mode === "jump") {
+        // if (mode === "jump") {
+        //     return (
+        //         <>
+        //             <p>模式：踩云朵冒险</p>
+        //             <p>尝试次数：{data.totalJumps}</p>
+        //             <p>成功跳跃：{data.successfulJumps}</p>
+        //             <p>总高度：{data.totalHeight.toFixed(1)}米</p>
+        //             {data.achievement && <p>🎖️ 成就：{data.achievement}</p>}
+        //         </>
+        //     );
+        // }
+        if (mode === "baseline") {
             return (
                 <>
-                    <p>模式：踩云朵冒险</p>
-                    <p>尝试次数：{data.totalJumps}</p>
-                    <p>成功跳跃：{data.successfulJumps}</p>
-                    <p>总高度：{data.totalHeight.toFixed(1)}米</p>
-                    {data.achievement && <p>🎖️ 成就：{data.achievement}</p>}
+                    <p>模式：基线模式</p>
+                    <p>放松时间结束</p>
                 </>
             );
         }
@@ -97,10 +105,6 @@ const GameSummary = ({ data, onClose }) => {
             <h2 style={{ marginTop: 0 }}>🎮 游戏结算</h2>
 
             {renderSummary()}
-
-            <p>
-                历史排名：{data.rank} / {data.totalGames}
-            </p>
             <p>该模式游戏总次数：{data.totalGames}</p>
 
             <button

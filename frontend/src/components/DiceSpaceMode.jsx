@@ -1,9 +1,10 @@
 /* eslint-disable no-unused-vars */
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react/prop-types */
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-// 音效导入
+// 骰子游戏音效导入
 import bgSound from "/sounds/dice/background.mp3";
 import rollSound from "/sounds/dice/roll.mp3";
 import readySound from "/sounds/dice/ready.mp3";
@@ -15,64 +16,63 @@ import victorySound from "/sounds/dice/victory.mp3";
 import failSound from "/sounds/dice/fail.mp3";
 
 const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
-    // ================ 可配置参数 ================
+    // ================ 游戏配置 ================
     const config = {
-        diceCount: 4,
-        minPoints: 14,
-        closeEyeTime: [2, 3, 4, 5], // 闭眼时间范围 (秒)
-        blinkWindow: 3000, // 眨眼时间窗口 (毫秒)
-        pointPerBlink: 1, // 每眨眼两次增加1点
-        switchSequence: ["right", "left", "right", "left"], // 切换顺序
-        voiceDelay: 1000, // 语音延迟 (毫秒)
-        totalTime: 30000, // 总游戏时间 (毫秒)
+        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+        bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
+        bonusPerBlink: 1, // 每次眨眼增加的点数
+        switchSequence: ["right", "left", "right"], // 切换骰子顺序
+        voiceDelay: 1000, // 语音提示延迟 (毫秒)
+        promptTimeout: 1000, // 操作提示超时 (毫秒)
+        totalTime: 60000, // 总游戏时间 (毫秒)
+        minPoints: 14, // 成功所需的最小点数
     };
 
     // ================ 游戏状态 ================
-    const [gamePhase, setGamePhase] = useState("intro"); // intro, ready, rolling, throwPrompt, bonusWindow, switching, success, fail
-    const [currentDice, setCurrentDice] = useState(0); // 当前骰子索引
-    const [dicePoints, setDicePoints] = useState(
-        Array(config.diceCount).fill(0)
-    ); // 每个骰子的点数
-    const [totalPoints, setTotalPoints] = useState(0); // 总点数
-    const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000); // 剩余时间
-    const [blinkCount, setBlinkCount] = useState(0); // 眨眼次数
-    const [bonusBlinks, setBonusBlinks] = useState(0); // 奖励窗口内的眨眼次数
+    const [gamePhase, setGamePhase] = useState("intro"); // intro, rolling, readyRoll, throwPrompt, bonusWindow, switching, success, fail
+    const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
+    const [blinkCount, setBlinkCount] = useState(0);
+    const [bonusBlinks, setBonusBlinks] = useState(0); // 用于UI渲染的奖励眨眼次数
+    const [dicePoints, setDicePoints] = useState([]); // 用于UI渲染的骰子点数
+    const [totalPoints, setTotalPoints] = useState(0); // 用于UI渲染的总点数
 
-    // 游戏统计
     const [stats, setStats] = useState({
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
-        wrongBlinks: 0,
+        wrongSwitches: 0,
         closeEyeDuration: 0,
         bonusPoints: 0,
     });
 
     // ================ Refs ================
     const socket = useRef(null);
+    const bonusBlinksRef = useRef(0);
+    const dicePointsRef = useRef([]);
+    const totalPointsRef = useRef(0);
+    const currentDice = useRef(0);
     const statsRef = useRef({
+        minPoints: 14,
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
-        wrongBlinks: 0,
+        wrongSwitches: 0,
         closeEyeDuration: 0,
         bonusPoints: 0,
     });
-
     const gameTimers = useRef({
         countdown: null,
         roll: null,
-        throwPrompt: null,
+        prompt: null,
         bonusWindow: null,
-        switchPrompt: null,
+        rollCheck: null,
     });
-
     const gameState = useRef({
         phase: "intro",
         eyeState: "open",
         closeEyeStart: 0,
-        basePoint: 0, // 骰子基础点数
-        bonusPoint: 0, // 奖励点数
+        accumulatedCloseTime: 0,
+        targetCloseTime: 0,
         lastBlinkTime: 0,
         isSpeaking: false,
         isRollingPlaying: false,
@@ -130,8 +130,11 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         if (options.loop) audio.loop = true;
         if (options.volume) audio.volume = options.volume;
 
-        audio.currentTime = 0;
-        audio.play().catch(console.warn);
+        // 只有当音频未播放时才设置 currentTime 和播放
+        if (audio.paused) {
+            audio.currentTime = 0;
+            audio.play().catch(console.warn);
+        }
     }, []);
 
     const stopSound = useCallback((soundName) => {
@@ -151,6 +154,11 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         });
     }, []);
 
+    // 生成骰子点数 (1-6)
+    const generateDicePoint = useCallback(() => {
+        return Math.floor(Math.random() * 6) + 1;
+    }, []);
+
     // ================ 游戏逻辑 ================
     const startGame = useCallback(async () => {
         if (gameState.current.phase !== "intro") return;
@@ -161,30 +169,34 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         });
 
         // 重置游戏状态
-        setGamePhase("ready");
-        setCurrentDice(0);
-        setDicePoints(Array(config.diceCount).fill(0));
-        setTotalPoints(0);
+        setGamePhase("rolling");
+        setRemainingTime(config.totalTime / 1000);
         setBlinkCount(0);
+        bonusBlinksRef.current = 0;
         setBonusBlinks(0);
+        currentDice.current = 0;
+        dicePointsRef.current = [];
+        totalPointsRef.current = 0;
+        setDicePoints([]);
+        setTotalPoints(0);
 
         statsRef.current = {
             totalBlinks: 0,
             leftBlinks: 0,
             rightBlinks: 0,
-            wrongBlinks: 0,
+            wrongSwitches: 0,
             closeEyeDuration: 0,
             bonusPoints: 0,
         };
-        setStats(statsRef.current);
+        setStats(statsRef.current); // 刷新界面
 
         gameState.current = {
             ...gameState.current,
-            phase: "ready",
+            phase: "rolling",
             eyeState: "open",
             closeEyeStart: 0,
-            basePoint: 0,
-            bonusPoint: 0,
+            accumulatedCloseTime: 0,
+            targetCloseTime: 0,
             lastBlinkTime: 0,
             isSpeaking: false,
             isRollingPlaying: false,
@@ -212,12 +224,12 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
     }, [speakAndWait, playSound]);
 
     const startRolling = useCallback(() => {
-        if (gameState.current.phase !== "ready") return;
+        if (gameState.current.phase !== "rolling") return;
+        if (gameState.current.closeEyeStart === 0) {
+            gameState.current.closeEyeStart = Date.now();
+        }
 
-        // 记录闭眼开始时间
-        gameState.current.closeEyeStart = Date.now();
         gameState.current.eyeState = "closed";
-        setGamePhase("rolling");
 
         // 播放摇骰子音效
         if (!gameState.current.isRollingPlaying) {
@@ -225,18 +237,26 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
             gameState.current.isRollingPlaying = true;
         }
 
-        // 随机摇骰子时间
-        const minTime = config.closeEyeTime[0] * 1000;
-        const maxTime =
-            config.closeEyeTime[config.closeEyeTime.length - 1] * 1000;
-        const rollTime = Math.floor(
-            Math.random() * (maxTime - minTime) + minTime
-        );
+        // 设置随机闭眼目标时间（相当于迷宫中的移动时间）
+        if (gameState.current.targetCloseTime === 0) {
+            const randomTime =
+                config.closeEyeTime[
+                    Math.floor(Math.random() * config.closeEyeTime.length)
+                ];
+            gameState.current.targetCloseTime = randomTime * 1000;
+        }
 
-        // 设置摇骰子定时器
-        gameTimers.current.roll = setTimeout(() => {
-            stopRolling();
-        }, rollTime);
+        // 检查是否到达完成摇骰子的时间（相当于迷宫的撞墙检查）
+        gameTimers.current.rollCheck = setInterval(() => {
+            const currentDuration =
+                Date.now() - gameState.current.closeEyeStart;
+            const totalDuration =
+                gameState.current.accumulatedCloseTime + currentDuration;
+
+            if (totalDuration >= gameState.current.targetCloseTime) {
+                completeRoll(); // 相当于迷宫的 hitWall()
+            }
+        }, 100);
     }, [playSound]);
 
     const stopRolling = useCallback(() => {
@@ -246,55 +266,90 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         stopSound("roll");
         gameState.current.isRollingPlaying = false;
 
-        // 清除摇骰子定时器
-        clearTimeout(gameTimers.current.roll);
-        gameTimers.current.roll = null;
+        // 清除摇骰子检查定时器
+        clearInterval(gameTimers.current.rollCheck);
+        gameTimers.current.rollCheck = null;
 
+        // 累加闭眼时间（但不生成点数，因为这是主动停止）
+        const closeDuration = Date.now() - gameState.current.closeEyeStart;
+        gameState.current.accumulatedCloseTime += closeDuration;
+        statsRef.current.closeEyeDuration += closeDuration;
+        setStats((prev) => ({
+            ...prev,
+            closeEyeDuration: statsRef.current.closeEyeDuration,
+        }));
+        gameState.current.eyeState = "open";
+    }, [stopSound]);
+
+    // 相当于迷宫的 hitWall()
+    const completeRoll = useCallback(() => {
+        // 清除定时器
+        clearInterval(gameTimers.current.rollCheck);
+        gameTimers.current.rollCheck = null;
+
+        // 停止摇骰子音效
+        stopSound("roll");
+        gameState.current.isRollingPlaying = false;
+        playSound("ready");
         // 累加闭眼时间
         const closeDuration = Date.now() - gameState.current.closeEyeStart;
+        gameState.current.accumulatedCloseTime += closeDuration;
         statsRef.current.closeEyeDuration += closeDuration;
         setStats((prev) => ({
             ...prev,
             closeEyeDuration: statsRef.current.closeEyeDuration,
         }));
 
-        gameState.current.eyeState = "open";
+        // 生成基础骰子点数（只有自动完成时才生成）
+        const basePoint = generateDicePoint();
+        const newDicePoints = [...dicePointsRef.current];
+        newDicePoints[currentDice.current] = basePoint;
+        dicePointsRef.current = newDicePoints;
+        setDicePoints(newDicePoints);
 
-        // 生成基础点数 (1-6)
-        gameState.current.basePoint = Math.floor(Math.random() * 6) + 1;
-        gameState.current.bonusPoint = 0;
+        // 更新总点数
+        const newTotal = newDicePoints.reduce(
+            (sum, point) => sum + (point || 0),
+            0
+        );
+        totalPointsRef.current = newTotal;
+        setTotalPoints(newTotal);
 
-        // 播放准备音效
-        playSound("ready");
-        setGamePhase("throwPrompt");
-        speak("眨双眼两次掷出骰子");
+        setGamePhase("readyRoll");
+        speak("摇骰完成，请眨眼两次掷出骰子");
 
-        // 设置提示超时
-        gameTimers.current.throwPrompt = setTimeout(() => {
-            if (gameState.current.phase === "throwPrompt") {
-                speak("眨双眼多次获得点数和奖励");
-                startBonusWindow();
+        // 提示玩家眨眼进入奖励窗口
+        gameTimers.current.prompt = setTimeout(() => {
+            if (gameState.current.phase === "readyRoll") {
+                speak("眨眼两次增加骰子点数");
+                setGamePhase("throwPrompt");
+
+                gameTimers.current.prompt = setTimeout(() => {
+                    if (gameState.current.phase === "throwPrompt") {
+                        startBonusWindow();
+                    }
+                }, config.promptTimeout);
             }
         }, config.voiceDelay);
-    }, [speak, playSound, stopSound]);
+    }, [speak, stopSound, generateDicePoint, dicePoints, currentDice]);
 
     const startBonusWindow = useCallback(() => {
         setGamePhase("bonusWindow");
+        bonusBlinksRef.current = 0;
         setBonusBlinks(0);
         playSound("timer");
 
         // 3秒后结束奖励窗口
         gameTimers.current.bonusWindow = setTimeout(() => {
             endBonusWindow();
-        }, config.blinkWindow);
+        }, config.bonusWindowDuration);
     }, [playSound]);
 
     const endBonusWindow = useCallback(() => {
         stopSound("timer");
 
         // 计算奖励点数
-        const bonusPoints = Math.floor(bonusBlinks / 2) * config.pointPerBlink;
-        gameState.current.bonusPoint = bonusPoints;
+        const bonusPoints = Math.floor(bonusBlinksRef.current / 2) * config.bonusPerBlink;
         statsRef.current.bonusPoints += bonusPoints;
         setStats((prev) => ({
             ...prev,
@@ -302,45 +357,39 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         }));
 
         // 更新当前骰子点数
-        const finalPoint = gameState.current.basePoint + bonusPoints;
-        const newDicePoints = [...dicePoints];
-        newDicePoints[currentDice] = finalPoint;
+        const newDicePoints = [...dicePointsRef.current];
+        newDicePoints[currentDice.current] =
+            (newDicePoints[currentDice.current] || 0) + bonusPoints;
+        dicePointsRef.current = newDicePoints;
         setDicePoints(newDicePoints);
 
         // 更新总点数
-        const newTotal = newDicePoints.reduce((sum, point) => sum + point, 0);
+        const newTotal = newDicePoints.reduce(
+            (sum, point) => sum + (point || 0),
+            0
+        );
+        totalPointsRef.current = newTotal;
         setTotalPoints(newTotal);
 
-        // 播报最终点数
-        speak(`${finalPoint}点`);
+        // 提示切换方向
+        const direction = config.switchSequence[currentDice.current];
+        speak(`往${direction === "left" ? "左" : "右"}眨眼掷出骰子`);
+        setGamePhase("switching");
 
-        // 检查是否是最后一个骰子
-        if (currentDice >= config.diceCount - 1) {
-            // 最后一个骰子，进入结算
-            setTimeout(() => {
-                endGame(newTotal > config.minPoints);
-            }, 2000);
-        } else {
-            // 提示切换方向
-            const direction = config.switchSequence[currentDice];
-            speak(`${direction === "left" ? "左" : "右"}眨眼切换下一个骰子`);
-            setGamePhase("switching");
-
-            // 设置切换提示超时
-            gameTimers.current.switchPrompt = setTimeout(() => {
-                if (gameState.current.phase === "switching") {
-                    const direction = config.switchSequence[currentDice];
-                    speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
-                }
-            }, config.voiceDelay);
-        }
-    }, [speak, stopSound, currentDice, dicePoints, bonusBlinks]);
+        // 如果1秒内没有正确眨眼，提示玩家
+        gameTimers.current.prompt = setTimeout(() => {
+            if (gameState.current.phase === "switching") {
+                const direction = config.switchSequence[currentDice.current];
+                speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
+            }
+        }, config.promptTimeout);
+    }, [speak, stopSound]);
 
     const handleCorrectSwitch = useCallback(() => {
+        const direction = config.switchSequence[currentDice.current];
         playSound("switch");
 
         // 更新统计
-        const direction = config.switchSequence[currentDice];
         statsRef.current.totalBlinks += 1;
         if (direction === "left") {
             statsRef.current.leftBlinks += 1;
@@ -349,20 +398,34 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         }
         setStats({ ...statsRef.current });
 
-        // 切换到下一个骰子
-        setCurrentDice((prev) => prev + 1);
-        setBlinkCount(0);
-        setGamePhase("ready");
-        speak(`闭双眼开始摇第${currentDice + 2}个骰子`);
-    }, [speak, playSound]);
+        // 检查是否完成所有骰子
+        if (currentDice.current >= config.switchSequence.length - 1) {
+            // 所有骰子掷出完毕，检查点数
+            if (totalPointsRef.current >= config.minPoints) {
+                endGame(true);
+            } else {
+                endGame(false);
+            }
+        } else {
+            // 重置状态并切换到下一个骰子
+            gameState.current.closeEyeStart = 0;
+            gameState.current.accumulatedCloseTime = 0;
+            gameState.current.targetCloseTime = 0;
+
+            const nextDice = currentDice.current + 1;
+            currentDice.current = nextDice;
+            setGamePhase("rolling");
+            speak(`闭双眼开始摇第${nextDice + 1}个骰子`);
+        }
+    }, [speak, playSound, currentDice]);
 
     const handleWrongSwitch = useCallback(() => {
         playSound("wrong");
         statsRef.current.totalBlinks += 1;
-        statsRef.current.wrongBlinks += 1;
+        statsRef.current.wrongSwitches += 1;
         setStats({ ...statsRef.current });
 
-        const direction = config.switchSequence[currentDice];
+        const direction = config.switchSequence[currentDice.current];
         speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
     }, [speak, playSound]);
 
@@ -383,16 +446,16 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
             const finalStats = {
                 ...statsRef.current,
                 isSuccess,
-                dicePoints: [...dicePoints],
-                totalPoints,
-                mode: "diceSpace",
+                totalPoints: totalPointsRef.current,
+                dicePoints: dicePointsRef.current,
+                mode: "dice",
                 timestamp: Date.now(),
             };
 
             setGamePhase(isSuccess ? "success" : "fail");
             onGameEnd(finalStats);
         },
-        [onGameEnd, stopAllSounds, playSound, dicePoints, totalPoints]
+        [onGameEnd, stopAllSounds, playSound]
     );
 
     // ================ 事件处理 ================
@@ -403,30 +466,38 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
             statsRef.current.totalBlinks = newTotalBlinks;
             setStats((prev) => ({ ...prev, totalBlinks: newTotalBlinks }));
 
-            // 在 intro 阶段处理开始游戏
+            // 只在 intro 阶段处理开始游戏
             if (gameState.current.phase === "intro" && newTotalBlinks >= 2) {
                 startGame();
                 return;
             }
 
-            // 在 throwPrompt 阶段检测是否眨眼两次
             if (
                 gameState.current.phase === "throwPrompt" &&
                 newTotalBlinks >= 2
             ) {
-                clearTimeout(gameTimers.current.throwPrompt);
+                clearTimeout(gameTimers.current.prompt);
                 startBonusWindow();
                 return;
             }
+
+            // 在 bonusWindow 阶段记录眨眼次数
+            if (gameState.current.phase === "bonusWindow") {
+                bonusBlinksRef.current += 1;
+                setBonusBlinks(bonusBlinksRef.current);
+                playSound("levelUp");
+            }
         },
-        [startGame, startBonusWindow]
+        [startGame, startBonusWindow, playSound]
     );
 
     const handleLeftBlink = useCallback(
         (data) => {
             // 只在特定阶段处理眨眼
             if (
-                !["bonusWindow", "switching"].includes(gameState.current.phase)
+                !["switching", "bonusWindow", "throwPrompt"].includes(
+                    gameState.current.phase
+                )
             ) {
                 return;
             }
@@ -437,17 +508,13 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 totalBlinks: statsRef.current.totalBlinks,
             }));
 
-            if (gameState.current.phase === "bonusWindow") {
-                // 奖励窗口中的眨眼
-                setBonusBlinks((prev) => prev + 1);
-                playSound("levelUp");
-            } else if (gameState.current.phase === "switching") {
-                // 切换骰子
+            if (gameState.current.phase === "switching") {
                 const now = Date.now();
                 if (now - gameState.current.lastBlinkTime < 300) return;
                 gameState.current.lastBlinkTime = now;
 
-                const expectedDirection = config.switchSequence[currentDice];
+                const expectedDirection =
+                    config.switchSequence[currentDice.current];
                 if (expectedDirection === "left") {
                     handleCorrectSwitch();
                 } else {
@@ -455,14 +522,16 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 }
             }
         },
-        [handleCorrectSwitch, handleWrongSwitch, playSound]
+        [handleCorrectSwitch, handleWrongSwitch]
     );
 
     const handleRightBlink = useCallback(
         (data) => {
             // 只在特定阶段处理眨眼
             if (
-                !["bonusWindow", "switching"].includes(gameState.current.phase)
+                !["switching", "bonusWindow", "throwPrompt"].includes(
+                    gameState.current.phase
+                )
             ) {
                 return;
             }
@@ -473,17 +542,13 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 totalBlinks: statsRef.current.totalBlinks,
             }));
 
-            if (gameState.current.phase === "bonusWindow") {
-                // 奖励窗口中的眨眼
-                setBonusBlinks((prev) => prev + 1);
-                playSound("levelUp");
-            } else if (gameState.current.phase === "switching") {
-                // 切换骰子
+            if (gameState.current.phase === "switching") {
                 const now = Date.now();
                 if (now - gameState.current.lastBlinkTime < 300) return;
                 gameState.current.lastBlinkTime = now;
 
-                const expectedDirection = config.switchSequence[currentDice];
+                const expectedDirection =
+                    config.switchSequence[currentDice.current];
                 if (expectedDirection === "right") {
                     handleCorrectSwitch();
                 } else {
@@ -491,7 +556,7 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 }
             }
         },
-        [handleCorrectSwitch, handleWrongSwitch, playSound]
+        [handleCorrectSwitch, handleWrongSwitch]
     );
 
     const handleEyeState = useCallback(
@@ -500,12 +565,17 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
 
             gameState.current.eyeState = data.status;
 
-            if (gameState.current.phase === "ready") {
+            if (gameState.current.phase === "rolling") {
                 if (data.status === "closed") {
+                    if (gameState.current.closeEyeStart === 0) {
+                        console.log("首次检测到闭眼，设置开始时间");
+                        gameState.current.closeEyeStart = Date.now();
+                    }
                     startRolling();
-                }
-            } else if (gameState.current.phase === "rolling") {
-                if (data.status === "open") {
+                } else if (
+                    data.status === "open" &&
+                    gameState.current.closeEyeStart !== 0
+                ) {
                     stopRolling();
                 }
             }
@@ -524,7 +594,7 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         socket.current.on("left_blink_event", handleLeftBlink);
         socket.current.on("right_blink_event", handleRightBlink);
 
-        // 初始语音提示
+        // 只在首次挂载时播放初始语音
         speak("欢迎来到骰子空间游戏，请眨双眼两次开始游戏");
 
         return () => {
@@ -556,19 +626,19 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         switch (gamePhase) {
             case "intro":
                 return "请眨双眼两次开始游戏";
-            case "ready":
-                return gameState.current.eyeState === "closed"
-                    ? "摇骰子中...睁双眼停止"
-                    : `请闭双眼开始摇第${currentDice + 1}个骰子`;
             case "rolling":
                 return "摇骰子中...睁双眼停止";
+            case "readyRoll":
+                return "摇骰完成，请眨眼两次掷出骰子";
             case "throwPrompt":
                 return "请眨双眼两次掷出骰子";
             case "bonusWindow":
                 return `快速眨眼增加点数！(${bonusBlinks}次眨眼)`;
             case "switching":
                 return `请${
-                    config.switchSequence[currentDice] === "left" ? "左" : "右"
+                    config.switchSequence[currentDice.current] === "left"
+                        ? "左"
+                        : "右"
                 }眨眼切换到下一个骰子`;
             case "success":
                 return "恭喜成功离开骰子空间！";
@@ -577,6 +647,46 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
             default:
                 return "";
         }
+    };
+
+    // 渲染骰子点数
+    const renderDicePoints = () => {
+        return (
+            <div
+                style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    margin: "10px 0",
+                    gap: "15px",
+                }}>
+                {dicePoints.map((point, index) => (
+                    <div
+                        key={index}
+                        style={{
+                            width: "40px",
+                            height: "40px",
+                            backgroundColor: "#f0f0f0",
+                            borderRadius: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontWeight: "bold",
+                            fontSize: "1.2rem",
+                            color: "#333",
+                            border:
+                                currentDice.current === index
+                                    ? "3px solid gold"
+                                    : "2px solid #ccc",
+                            boxShadow:
+                                currentDice.current === index
+                                    ? "0 0 10px gold"
+                                    : "none",
+                        }}>
+                        {point || "?"}
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     // ================ 渲染 ================
@@ -594,92 +704,33 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 justifyContent: "center",
                 color: "white",
                 textAlign: "center",
-                background:
-                    "linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c)",
-                fontFamily:
-                    '"Arial Rounded MT Bold", "Helvetica Rounded", Arial, sans-serif',
             }}>
             {/* 游戏标题 */}
             <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
-            <p style={{ color: "rgb(255,255,255,0.8)" }}>
-                通过闭眼摇骰和眨眼控制逃离空间
+            <p style={{ color: "rgb(255,255,255,0.7)" }}>
+                掷出骰子，点数之和大于14即可离开
             </p>
-
-            {/* 骰子点数显示 */}
-            <div
-                style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    margin: "10px 0",
-                }}>
-                {dicePoints.map((point, index) => (
-                    <div
-                        key={index}
-                        style={{
-                            width: "40px",
-                            height: "40px",
-                            borderRadius: "8px",
-                            backgroundColor:
-                                index === currentDice ? "#ff6b6b" : "#4ecdc4",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            margin: "0 5px",
-                            fontWeight: "bold",
-                            fontSize: "1.2rem",
-                            color: "white",
-                            opacity: index <= currentDice ? 1 : 0.5,
-                        }}>
-                        {point > 0 ? point : "?"}
-                    </div>
-                ))}
-            </div>
-
-            {/* 总点数显示 */}
-            {gamePhase !== "intro" &&
-                gamePhase !== "success" &&
-                gamePhase !== "fail" && (
-                    <div
-                        style={{
-                            margin: "10px 0",
-                            fontSize: "1.2rem",
-                            fontWeight: "bold",
-                        }}>
-                        总点数: {totalPoints} / {config.minPoints}
-                    </div>
-                )}
-
-            {/* 剩余时间 */}
-            {gamePhase !== "intro" &&
-                gamePhase !== "success" &&
-                gamePhase !== "fail" && (
-                    <div style={{ margin: "10px 0", fontSize: "1.2rem" }}>
-                        剩余时间: {remainingTime}秒
-                    </div>
-                )}
 
             {/* 等待开始界面（眨双眼两次） */}
             {gamePhase === "intro" && (
                 <div>
                     <p>
-                        闭双眼：摇骰子
+                        闭双眼：摇动骰子
                         <br />
-                        睁双眼：停止摇骰
+                        睁双眼：停止摇动
                         <br />
-                        左眨眼：左转
+                        左眨眼：左掷骰子
                         <br />
-                        右眨眼：右转
+                        右眨眼：右掷骰子
                     </p>
                     <p
                         style={{
                             marginTop: "2rem",
                             fontSize: "1rem",
-                            color: "#ffd166",
+                            color: "pink",
                         }}>
                         开始游戏（眨双眼两次）
-                        <span style={{ marginLeft: "10px" }}>
-                            {blinkCount}/2
-                        </span>
+                        <span style={{ color: "pink" }}>{blinkCount}/2</span>
                     </p>
                 </div>
             )}
@@ -688,19 +739,32 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 gamePhase !== "success" &&
                 gamePhase !== "fail" && (
                     <>
+                        <h1>{remainingTime}秒</h1>
+                        <h2>
+                            总点数: {totalPoints} / {config.minPoints}
+                        </h2>
+
+                        {renderDicePoints()}
+
+                        <p>
+                            闭双眼：摇动骰子
+                            <br />
+                            睁双眼：停止摇动
+                            <br />
+                            左眨眼：左掷骰子
+                            <br />
+                            右眨眼：右掷骰子
+                        </p>
                         <p
                             style={{
                                 marginTop: "1rem",
-                                fontSize: "1.2rem",
-                                color: "#ffd166",
+                                fontSize: "1rem",
+                                color: "#ffcc00",
+                                fontWeight: "bold",
                                 backgroundColor: "rgba(0,0,0,0.3)",
-                                padding: "10px 20px",
-                                borderRadius: "10px",
-                                maxWidth: "90%",
-                                minHeight: "60px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
+                                padding: "8px 16px",
+                                borderRadius: "20px",
+                                maxWidth: "80%",
                             }}>
                             {renderGameStateText()}
                         </p>
@@ -708,15 +772,26 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 )}
 
             {(gamePhase === "success" || gamePhase === "fail") && (
-                <div>
-                    <h2 style={{ fontSize: "2rem", marginBottom: "10px" }}>
+                <div
+                    style={{
+                        padding: "20px",
+                        backgroundColor: "rgba(0,0,0,0.7)",
+                        borderRadius: "15px",
+                        maxWidth: "80%",
+                    }}>
+                    <h2
+                        style={{
+                            color:
+                                gamePhase === "success" ? "#4caf50" : "#f44336",
+                        }}>
                         {gamePhase === "success"
-                            ? "🎉 逃离成功! 🎉"
-                            : "😢 逃离失败"}
+                            ? "恭喜成功离开骰子空间!"
+                            : "很遗憾，未能离开骰子空间"}
                     </h2>
-                    <p style={{ fontSize: "1.5rem", fontWeight: "bold" }}>
-                        总点数: {totalPoints} / {config.minPoints}
+                    <p>
+                        骰子点数: {dicePoints.join(" + ")} = {totalPoints}
                     </p>
+                    <p>目标点数: {config.minPoints}</p>
                     <p>正在生成结算信息...</p>
                 </div>
             )}

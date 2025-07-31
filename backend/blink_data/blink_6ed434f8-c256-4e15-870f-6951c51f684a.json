@@ -1,0 +1,60 @@
+{
+  "game_id": "6ed434f8-c256-4e15-870f-6951c51f684a",
+  "game_type": "dice",
+  "start_time": "2025-07-30T14:57:27.815138",
+  "end_time": "2025-07-30T14:57:39.557499",
+  "total_blinks": 7,
+  "left_total_blinks": 0,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-07-30T14:57:28.719234",
+      "min_ear": 0.1274,
+      "avg_ear": 0.2765,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:29.218319",
+      "min_ear": 0.0956,
+      "avg_ear": 0.3035,
+      "duration": 0.499,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:31.817116",
+      "min_ear": 0.0872,
+      "avg_ear": 0.2212,
+      "duration": 2.599,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:32.772020",
+      "min_ear": 0.1002,
+      "avg_ear": 0.1801,
+      "duration": 0.955,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:35.113605",
+      "min_ear": 0.1072,
+      "avg_ear": 0.3247,
+      "duration": 2.342,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:35.381535",
+      "min_ear": 0.1035,
+      "avg_ear": 0.1683,
+      "duration": 0.268,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-07-30T14:57:36.280801",
+      "min_ear": 0.0881,
+      "avg_ear": 0.1552,
+      "duration": 0.899,
+      "type": "full"
+    }
+  ]
+}

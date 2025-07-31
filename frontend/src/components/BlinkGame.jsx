@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import io from "socket.io-client";
 import styles from "./BlinkGame.module.css";
-import ClassicMode from "./ClassicMode";
+// import ClassicMode from "./ClassicMode";
 import MazeRescueMode from "./MazeRescueMode";
-import JumpMode from "./JumpMode";
+// import JumpMode from "./JumpMode";
 import GameSummary from "./GameSummary";
 import outputIcon from "/icon/output.svg";
 import deleteIcon from "/icon/delete.svg";
 import DiceSpaceMode from "./DiceSpaceMode";
+import BaselineMode from "./BaselineMode";
 
 const BlinkGame = () => {
     const canvasRef = useRef(null);
@@ -72,6 +73,7 @@ const BlinkGame = () => {
                     rightBlinks,
                     timestamp,
                     mode,
+                    totalBlinks,
                     ...filteredFrontendResult
                 } = resultRef.current;
                 // 合并前后端数据
@@ -305,17 +307,17 @@ const BlinkGame = () => {
     // mode change
     const renderModeComponent = () => {
         switch (mode) {
-            case "classic":
-                return (
-                    <ClassicMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                    />
-                );
-            case "jump":
-                return (
-                    <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />
-                );
+            // case "classic":
+            //     return (
+            //         <ClassicMode
+            //             onGameEnd={handleGameEnd}
+            //             shouldEnd={gameEnded}
+            //         />
+            //     );
+            // case "jump":
+            //     return (
+            //         <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />
+            //     );
             case "maze":
                 return (
                     <MazeRescueMode
@@ -330,9 +332,16 @@ const BlinkGame = () => {
                         shouldEnd={gameEnded}
                     />
                 );
+            case "baseline":
+                return (
+                    <BaselineMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                    />
+                );
             default:
                 return (
-                    <ClassicMode
+                    <BaselineMode
                         onGameEnd={handleGameEnd}
                         shouldEnd={gameEnded}
                     />
@@ -365,8 +374,9 @@ const BlinkGame = () => {
                     value={mode}
                     className={styles.selectBox}
                     onChange={(e) => setMode(e.target.value)}>
-                    <option value="classic">校准模式</option>
-                    <option value="jump">跳一跳</option>
+                    {/* <option value="classic">校准模式</option> */}
+                    {/* <option value="jump">跳一跳</option> */}
+                    <option value="baseline">基线</option>
                     <option value="maze">迷宫</option>
                     <option value="dice">骰子</option>
                 </select>
