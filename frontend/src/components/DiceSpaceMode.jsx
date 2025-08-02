@@ -349,7 +349,8 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
         stopSound("timer");
 
         // 计算奖励点数
-        const bonusPoints = Math.floor(bonusBlinksRef.current / 2) * config.bonusPerBlink;
+        const bonusPoints =
+            Math.floor(bonusBlinksRef.current / 2) * config.bonusPerBlink;
         statsRef.current.bonusPoints += bonusPoints;
         setStats((prev) => ({
             ...prev,
@@ -705,15 +706,14 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
                 color: "white",
                 textAlign: "center",
             }}>
-            {/* 游戏标题 */}
-            <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
-            <p style={{ color: "rgb(255,255,255,0.7)" }}>
-                掷出骰子，点数之和大于14即可离开
-            </p>
-
             {/* 等待开始界面（眨双眼两次） */}
             {gamePhase === "intro" && (
                 <div>
+                    {/* 游戏标题 */}
+                    <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
+                    <p style={{ color: "rgb(255,255,255,0.7)" }}>
+                        掷出骰子，点数之和大于14即可离开
+                    </p>
                     <p>
                         闭双眼：摇动骰子
                         <br />

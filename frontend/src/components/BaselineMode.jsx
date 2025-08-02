@@ -6,7 +6,7 @@ import { io } from "socket.io-client";
 
 const BaselineMode = ({ onGameEnd, shouldEnd }) => {
     const config = {
-        countdownDuration: 20,
+        countdownDuration: 2,
         voiceDelay: 1000,
     };
 

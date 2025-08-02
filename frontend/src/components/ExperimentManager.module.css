@@ -1,0 +1,156 @@
+.container {
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    font-family: sans-serif;
+    padding: 0;
+    font-size: 14px;
+    color: #ededed;
+}
+
+.setupContainer {
+    max-width: 500px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: auto;
+}
+
+.runningContainer,
+.completedContainer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mainSettings {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.leftCol,
+.rightCol {
+    width: 50%;
+    height: 100%;
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.inputGroup {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 6px;
+}
+
+.inputGroup input {
+    padding: 6px 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.orderSection {
+    background-color: #000000;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+.orderSection h3 {
+    margin-top: 0;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.draggableItem {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    background-color: #3a3a3a;
+    border-radius: 4px;
+    cursor: grab;
+    transition: background-color 0.2s ease;
+}
+
+.draggableItem:hover {
+    background-color: #212121;
+}
+
+.handle {
+    margin-right: 8px;
+    color: #888;
+}
+
+.progressBar {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    background-color: #000000;
+    border: 1px solid #ffffff46;
+    z-index: 10000;
+    border-radius: 4px;
+}
+
+.progressInfo h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+}
+
+.progressInfo p {
+    margin: 2px 0;
+}
+
+.startButton,
+.restartButton {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    background-color: #1677ff;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.exportButton {
+    position: absolute;
+    top: 60px;
+    right: 60px;
+    font-size: 14px;
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.deleteBtn {
+    position: absolute;
+    top: 105px;
+    right: 63px;
+    font-size: 14px;
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.startButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.dataSummary {
+    background-color: #fdfdfd;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+}

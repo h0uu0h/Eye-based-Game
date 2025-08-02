@@ -12,16 +12,24 @@ import deleteIcon from "/icon/delete.svg";
 import DiceSpaceMode from "./DiceSpaceMode";
 import BaselineMode from "./BaselineMode";
 
-const BlinkGame = () => {
+const BlinkGame = ({
+    mode: externalMode = "baseline",
+    onComplete,
+    gameId,
+    experimentId,
+}) => {
     const canvasRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const capRef = useRef(0);
     const sendFrameIntervalRef = useRef(null);
-    const [mode, setMode] = useState("classic");
+    const [mode, setMode] = useState(externalMode);
     const [calibrated, setCalibrated] = useState(false);
     const [currentGameMode, setCurrentGameMode] = useState(mode);
     const socket = useRef(null);
+
+    // 传入游戏ID
+    const gameIdRef = useRef(gameId);
 
     /**************结算************* */
     const resultRef = useRef(null);
@@ -51,11 +59,7 @@ const BlinkGame = () => {
 
     // 当游戏模式组件返回结果时处理
     const handleGameEnd = (result) => {
-        if (!result) return;
-
-        console.log("收到游戏模式组件结果:", result);
         resultRef.current = result;
-        setSummary(result); // 弹出结算框
 
         // 确保 socket 可用
         if (!socket.current) {
@@ -94,6 +98,23 @@ const BlinkGame = () => {
                     JSON.stringify(history)
                 );
 
+                // 如果有关联的实验ID，也保存到实验特定的存储中
+                if (experimentId) {
+                    const experimentBlinkHistory = JSON.parse(
+                        localStorage.getItem(`blinkHistory_${experimentId}`) ||
+                            "[]"
+                    );
+                    experimentBlinkHistory.push({
+                        ...fullRecord,
+                        gameId: gameIdRef.current,
+                        experimentId: experimentId,
+                    });
+                    localStorage.setItem(
+                        `blinkHistory_${experimentId}`,
+                        JSON.stringify(experimentBlinkHistory)
+                    );
+                }
+
                 // 更新摘要显示完整数据
                 setSummary(resultRef.current);
             }
@@ -104,6 +125,14 @@ const BlinkGame = () => {
         });
     };
     /***************************** */
+
+    // 实验模式下自动开始游戏
+    useEffect(() => {
+        if (onComplete && !gameStarted) {
+            setGameStarted(true);
+            setGameEnded(false);
+        }
+    }, [onComplete]);
 
     // 游戏开始的逻辑
     useEffect(() => {
@@ -117,12 +146,6 @@ const BlinkGame = () => {
                 });
                 const videoTrack = stream.getVideoTracks()[0];
                 const capabilities = videoTrack.getCapabilities().frameRate.max;
-                console.log(
-                    "video capabilities:",
-                    videoTrack.getCapabilities()
-                );
-                console.log("video settings:", videoTrack.getSettings());
-                console.log("video constraints:", videoTrack.getConstraints());
                 capRef.current = capabilities;
                 streamRef.current = stream;
                 if (videoRef.current) {
@@ -158,7 +181,7 @@ const BlinkGame = () => {
             });
             socket.current.emit(
                 "start_game",
-                { game_type: currentGameMode },
+                { game_type: currentGameMode, game_id: gameIdRef.current },
                 (response) => {
                     if (response.status === "game_started") {
                         console.log(
@@ -349,84 +372,107 @@ const BlinkGame = () => {
         }
     };
 
+    // 检查是否在实验模式下
+    const isExperimentMode = onComplete !== undefined;
+
     return (
         <div
             className={styles.blinkContainer}
             style={{
                 backgroundColor: gameStarted ? "rgb(0,0,0)" : "rgba(0,0,0,0.5)",
             }}>
-            {!gameStarted && <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>}
-            <button
-                disabled={gameStarted}
-                onClick={handleExportHistory}
-                className={styles.outputBtn}>
-                <img
-                    src={outputIcon}
-                    style={{
-                        width: "30px",
-                        fill: gameStarted ? "#b3b3b3" : "white",
-                    }}
-                />
-            </button>
-            <div>
-                <select
-                    // disabled={gameStarted}
-                    value={mode}
-                    className={styles.selectBox}
-                    onChange={(e) => setMode(e.target.value)}>
-                    {/* <option value="classic">校准模式</option> */}
-                    {/* <option value="jump">跳一跳</option> */}
-                    <option value="baseline">基线</option>
-                    <option value="maze">迷宫</option>
-                    <option value="dice">骰子</option>
-                </select>
-            </div>
-            <button
-                disabled={gameStarted}
-                style={{ backgroundColor: gameStarted ? "#b3b3b3" : "white" }}
-                className={styles.calibrateBtn}
-                onClick={() => {
-                    localStorage.removeItem("threshold");
-                    setCalibrated(false);
-                    alert("已清除校准数据，下次进入将重新校准");
-                }}>
-                {localStorage.getItem("threshold") || "uncalibrated"}
-            </button>
-            <button
-                disabled={gameStarted}
-                onClick={() => {
-                    if (confirm("确定要清除所有历史记录吗？此操作不可撤销。")) {
-                        localStorage.removeItem("blinkGameHistory");
-                        alert("历史记录已清除！");
-                    }
-                }}
-                className={styles.deleteBtn}>
-                <img
-                    src={deleteIcon} // 你可以换成删除图标
-                    style={{
-                        width: "24px",
-                        filter: gameStarted ? "grayscale(100%)" : "none",
-                    }}
-                    alt="清除历史"
-                />
-            </button>
-            <button
-                onClick={handleToggleGame}
-                className={styles.startBtn}
-                style={{
-                    position: gameStarted ? "absolute" : "static",
-                    top: gameStarted ? "60px" : "",
-                    left: gameStarted ? "60px" : "",
-                }}>
-                {gameStarted ? "End Game" : "START"}
-            </button>
+            {!gameStarted && !isExperimentMode && (
+                <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>
+            )}
+            {!isExperimentMode && (
+                <>
+                    <button
+                        disabled={gameStarted}
+                        onClick={handleExportHistory}
+                        className={styles.outputBtn}>
+                        <img
+                            src={outputIcon}
+                            style={{
+                                width: "30px",
+                                fill: gameStarted ? "#b3b3b3" : "white",
+                            }}
+                        />
+                    </button>
+                    <div>
+                        <select
+                            // disabled={gameStarted}
+                            value={mode}
+                            className={styles.selectBox}
+                            onChange={(e) => setMode(e.target.value)}>
+                            {/* <option value="classic">校准模式</option> */}
+                            {/* <option value="jump">跳一跳</option> */}
+                            <option value="baseline">基线</option>
+                            <option value="maze">迷宫</option>
+                            <option value="dice">骰子</option>
+                        </select>
+                    </div>
+                    <button
+                        disabled={gameStarted}
+                        style={{
+                            backgroundColor: gameStarted ? "#b3b3b3" : "white",
+                        }}
+                        className={styles.calibrateBtn}
+                        onClick={() => {
+                            localStorage.removeItem("threshold");
+                            setCalibrated(false);
+                            alert("已清除校准数据，下次进入将重新校准");
+                        }}>
+                        {localStorage.getItem("threshold") || "uncalibrated"}
+                    </button>
+                    <button
+                        disabled={gameStarted}
+                        onClick={() => {
+                            if (
+                                confirm(
+                                    "确定要清除所有历史记录吗？此操作不可撤销。"
+                                )
+                            ) {
+                                localStorage.removeItem("blinkGameHistory");
+                                alert("历史记录已清除！");
+                            }
+                        }}
+                        className={styles.deleteBtn}>
+                        <img
+                            src={deleteIcon}
+                            style={{
+                                width: "24px",
+                                filter: gameStarted
+                                    ? "grayscale(100%)"
+                                    : "none",
+                            }}
+                            alt="清除历史"
+                        />
+                    </button>
+                    <button
+                        onClick={handleToggleGame}
+                        className={styles.startBtn}
+                        style={{
+                            position: gameStarted ? "absolute" : "static",
+                            top: gameStarted ? "60px" : "",
+                            left: gameStarted ? "60px" : "",
+                        }}>
+                        {gameStarted ? "End Game" : "START"}
+                    </button>
+                </>
+            )}
             {gameStarted && (
                 <div
                     style={{
-                        height: "80%",
-                        width: "90%",
+                        // height: "80%",
+                        // width: "90%",
                         position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
                         zIndex: "-1",
+                        margin: 0,
+                        padding: 0,
                         // backgroundColor:"pink",
                     }}>
                     <canvas
@@ -480,7 +526,17 @@ const BlinkGame = () => {
                 </div>
             )}
             {summary && (
-                <GameSummary data={summary} onClose={() => setSummary(null)} />
+                <GameSummary
+                    data={summary}
+                    onClose={() => {
+                        setSummary(null);
+                        // 如果是实验模式，关闭结算框后调用完成回调
+                        if (onComplete) {
+                            // 传递眨眼数据给父组件
+                            onComplete(gameIdRef.current, resultRef.current);
+                        }
+                    }}
+                />
             )}
         </div>
     );

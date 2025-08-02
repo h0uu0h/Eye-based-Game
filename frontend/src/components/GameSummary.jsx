@@ -105,7 +105,6 @@ const GameSummary = ({ data, onClose }) => {
             <h2 style={{ marginTop: 0 }}>🎮 游戏结算</h2>
 
             {renderSummary()}
-            <p>该模式游戏总次数：{data.totalGames}</p>
 
             <button
                 onClick={onClose}
@@ -118,7 +117,7 @@ const GameSummary = ({ data, onClose }) => {
                     borderRadius: "6px",
                     cursor: "pointer",
                 }}>
-                关闭
+                下一步
             </button>
         </div>
     );

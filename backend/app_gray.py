@@ -111,6 +111,15 @@ class BlinkDetector:
         self.data_dir = "blink_data"
         self.blink_records = []
 
+        # 纯检测模式相关属性
+        self.detection_active = False
+        self.detection_start_time = None
+        self.detection_stats = {
+            "total_blinks": 0,
+            "left_blinks": 0,
+            "right_blinks": 0,
+            "blink_details": [],  # 新增详细眨眼记录
+        }
         # 创建数据目录
         os.makedirs(self.data_dir, exist_ok=True)
 
@@ -178,6 +187,76 @@ class BlinkDetector:
 
         print(f"数据已保存到: {filename}")
         return game_data  # 返回完整数据
+
+    def start_detection(self):
+        """开始纯眨眼检测"""
+        self.detection_active = True
+        self.detection_start_time = time.time()
+        self.detection_stats = {
+            "total_blinks": 0,
+            "left_blinks": 0,
+            "right_blinks": 0,
+            "blink_details": [],  # 初始化详细记录
+        }
+        print("纯眨眼检测开始")
+
+        # 重置眨眼状态跟踪
+        self.current_eye_state = "open"
+        self.closed_start_time = None
+        self.current_blink_min_ear = float("inf")
+        self.blink_counter = 0
+        self.left_blink_counter = 0
+        self.right_blink_counter = 0
+        self.left_eye_state = "open"
+        self.right_eye_state = "open"
+
+    def end_detection(self):
+        """结束纯眨眼检测并返回结果"""
+        if not self.detection_active:
+            return None
+
+        duration = time.time() - self.detection_start_time
+        result = {
+            **self.detection_stats,
+            "duration": round(duration, 2),
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        # 处理眨眼细节数据
+        processed_blinks = []
+        prev_time = None
+        for rec in self.detection_stats["blink_details"]:
+            ts = datetime.fromisoformat(rec["timestamp"])
+            duration = (ts - prev_time).total_seconds() if prev_time else 0
+            blink_type = (
+                "full"
+                if rec["min_ear"]
+                < (self.min_ratio + (self.threshold - self.min_ratio) * 0.5)
+                else "partial"
+            )
+            processed_blinks.append(
+                {
+                    **rec,
+                    "duration": round(duration, 3),
+                    "type": blink_type,
+                }
+            )
+            prev_time = ts
+
+        # 添加处理后的眨眼细节
+        result["blink_details"] = processed_blinks
+
+        self.detection_active = False
+        self.detection_start_time = None
+        self.detection_stats = {
+            "total_blinks": 0,
+            "left_blinks": 0,
+            "right_blinks": 0,
+            "blink_details": [],
+        }
+
+        print(f"纯眨眼检测结束，结果: {result}")
+        return result
 
     def _calculate_ear(self, landmarks, eye_points):
         """计算眼睛纵横比(EAR)"""
@@ -349,6 +428,91 @@ class BlinkDetector:
                 lambda: socketio.emit("ear_value", {"value": avg_ear})
             )
 
+    def process_frame_for_detection(self, frame):
+        """纯检测模式专用的帧处理方法"""
+        # 图像预处理
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = self.clahe.apply(gray)
+        rgb = cv2.cvtColor(gray, cv2.COLOR_GRAY2RGB)
+
+        results = face_mesh.process(rgb)
+        if not results.multi_face_landmarks:
+            # 重置状态
+            self._reset_eye_states()
+            return
+
+        for face_landmarks in results.multi_face_landmarks:
+            landmarks = [(lm.x, lm.y, lm.z) for lm in face_landmarks.landmark]
+            left_ear = self._calculate_ear(landmarks, LEFT_EYE)
+            right_ear = self._calculate_ear(landmarks, RIGHT_EYE)
+            avg_ear = (left_ear + right_ear) / 2
+
+            # 整体眨眼检测
+            if left_ear < self.threshold and right_ear < self.threshold:
+                if self.current_eye_state != "closed":
+                    self.current_eye_state = "closed"
+                    self.closed_start_time = time.time()
+                    self.current_blink_min_ear = avg_ear
+                else:
+                    self.current_blink_min_ear = min(
+                        self.current_blink_min_ear, avg_ear
+                    )
+                self.blink_counter += 1
+            else:
+                if self.current_eye_state == "closed":
+                    self.current_eye_state = "open"
+                    if self.blink_counter > 2:  # 有效眨眼
+                        self._record_blink(avg_ear)
+                    self.blink_counter = 0
+                    self.current_blink_min_ear = float("inf")
+
+            # 左眼眨眼检测
+            if left_ear < self.threshold and right_ear > self.threshold:
+                self.left_blink_counter += 1
+                if self.left_eye_state != "closed":
+                    self.left_eye_state = "closed"
+            else:
+                if self.left_blink_counter > 2 and self.left_blink_counter < 14:
+                    self.detection_stats["left_blinks"] += 1
+                    self.detection_stats["total_blinks"] += 1
+                self.left_blink_counter = 0
+                if self.left_eye_state != "open":
+                    self.left_eye_state = "open"
+
+            # 右眼眨眼检测
+            if right_ear < self.threshold and left_ear > self.threshold:
+                self.right_blink_counter += 1
+                if self.right_eye_state != "closed":
+                    self.right_eye_state = "closed"
+            else:
+                if self.right_blink_counter > 2 and self.right_blink_counter < 14:
+                    self.detection_stats["right_blinks"] += 1
+                    self.detection_stats["total_blinks"] += 1
+                self.right_blink_counter = 0
+                if self.right_eye_state != "open":
+                    self.right_eye_state = "open"
+
+    def _reset_eye_states(self):
+        """重置所有眼睛状态"""
+        self.current_eye_state = "open"
+        self.closed_start_time = None
+        self.current_blink_min_ear = float("inf")
+        self.blink_counter = 0
+        self.left_eye_state = "open"
+        self.right_eye_state = "open"
+        self.left_blink_counter = 0
+        self.right_blink_counter = 0
+
+    def _record_blink(self, current_ear):
+        """记录一次眨眼"""
+        blink_record = {
+            "timestamp": datetime.now().isoformat(),
+            "min_ear": round(self.current_blink_min_ear, 4),
+            "avg_ear": round(current_ear, 4),
+        }
+        self.detection_stats["blink_details"].append(blink_record)
+        self.detection_stats["total_blinks"] += 1
+
 
 detector = BlinkDetector()
 
@@ -356,15 +520,26 @@ detector = BlinkDetector()
 @socketio.on("frame")
 def handle_frame(data):
     try:
+        # 解析图像数据
         if hasattr(data, "read"):
             image_data = data.read()
         else:
             image_data = data
         img = Image.open(BytesIO(image_data))
         frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-        detector.process_frame(frame)
+        # 根据当前模式选择处理方法
+        if detector.detection_active:
+            # 纯检测模式处理
+            detector.process_frame_for_detection(frame)
+        elif detector.game_active:
+            # 游戏模式处理
+            detector.process_frame(frame)
     except Exception as e:
-        print("[ERROR] Frame decode failed:", e)
+        print("[ERROR] Frame processing failed:", e)
+        # 发送错误通知到前端
+        socketio.start_background_task(
+            lambda: socketio.emit("frame_error", {"message": str(e)})
+        )
 
 
 @app.route("/start_calibration", methods=["POST"])
@@ -395,6 +570,20 @@ def handle_end_game():
         return {"status": "error", "message": "no active game"}
 
     return {"status": "game_ended", "game_data": game_data}  # 返回完整游戏数据
+
+
+@socketio.on("start_detection")
+def handle_start_detection():
+    detector.start_detection()
+    return {"status": "detection_started"}
+
+
+@socketio.on("end_detection")
+def handle_end_detection():
+    result = detector.end_detection()
+    if result is None:
+        return {"status": "error", "message": "detection not active"}
+    return {"status": "detection_ended", "data": result}
 
 
 if __name__ == "__main__":
