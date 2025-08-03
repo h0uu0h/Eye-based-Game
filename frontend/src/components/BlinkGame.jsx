@@ -331,17 +331,6 @@ const BlinkGame = ({
     // mode change
     const renderModeComponent = () => {
         switch (mode) {
-            // case "classic":
-            //     return (
-            //         <ClassicMode
-            //             onGameEnd={handleGameEnd}
-            //             shouldEnd={gameEnded}
-            //         />
-            //     );
-            // case "jump":
-            //     return (
-            //         <JumpMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} />
-            //     );
             case "maze":
                 return (
                     <MazeRescueMode
@@ -409,11 +398,9 @@ const BlinkGame = ({
                             value={mode}
                             className={styles.selectBox}
                             onChange={(e) => setMode(e.target.value)}>
-                            {/* <option value="classic">校准模式</option> */}
-                            {/* <option value="jump">跳一跳</option> */}
-                            <option value="baseline">基线</option>
-                            <option value="maze">迷宫</option>
-                            <option value="dice">骰子</option>
+                            <option value="baseline">基线模式</option>
+                            <option value="maze">迷宫模式</option>
+                            <option value="dice">骰子模式</option>
                         </select>
                     </div>
                     <button

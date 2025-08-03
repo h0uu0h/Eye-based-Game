@@ -1,6 +1,7 @@
 .container {
     width: 100vw;
     height: 100vh;
+    background-color: #242424;
     margin: 0;
     font-family: sans-serif;
     padding: 0;
@@ -134,10 +135,11 @@
     width: fit-content;
 }
 
-.restartButton{
+.restartButton {
     padding: 12px 24px;
     margin: 24px;
 }
+
 .exportButton {
     position: absolute;
     top: 60px;
@@ -202,4 +204,19 @@
 .configPanel input {
     padding: 5px;
     width: 100px;
+}
+
+.trialButton {
+    position: absolute;
+    bottom: 15px;
+    left: 15px;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    background-color: #000000;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    width: fit-content;
+    z-index: 1000;
 }

@@ -15,17 +15,22 @@ import levelUpSound from "/sounds/maze/levelup.mp3";
 import victorySound from "/sounds/maze/victory.mp3";
 import failSound from "/sounds/maze/fail.mp3";
 
-const MazeRescueMode = ({ onGameEnd, shouldEnd, config }) => {
+const MazeRescueMode = ({
+    onGameEnd,
+    shouldEnd,
+    config: incomingConfig = {},
+}) => {
     // ================ 游戏配置 ================
-    // const config = {
-    //     closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-    //     blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
-    //     timeReward: 1000, // 每次奖励时间 (毫秒)
-    //     turnSequence: ["right", "left", "right"], // 转向顺序
-    //     voiceDelay: 1000, // 语音提示延迟 (毫秒)
-    //     promptTimeout: 1000, // 操作提示超时 (毫秒)
-    //     totalTime: 30000, // 总游戏时间 (毫秒)
-    // };
+    const defaultConfig = {
+        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+        blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
+        timeReward: 1000, // 每次奖励时间 (毫秒)
+        turnSequence: ["right", "left", "right"], // 转向顺序
+        voiceDelay: 1000, // 语音提示延迟 (毫秒)
+        promptTimeout: 1000, // 操作提示超时 (毫秒)
+        totalTime: 30000, // 总游戏时间 (毫秒)
+    };
+    const config = { ...defaultConfig, ...incomingConfig };
 
     // ================ 游戏状态 ================
     const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkPrompt, blinkWindow, turning, success, fail

@@ -11,6 +11,10 @@ const ExperimentManager = () => {
     const [currentStage, setCurrentStage] = useState("setup");
     const [subjectId, setSubjectId] = useState("");
     const subjectIdRef = useRef(""); // 同步存储 subjectId
+    const [isTrialMode, setIsTrialMode] = useState(false);
+    const handleTrialMode = () => {
+        setIsTrialMode(!isTrialMode);
+    };
     const [gameOrder, setGameOrder] = useState([
         { id: "baseline", name: "基线模式" },
         { id: "maze", name: "迷宫模式" },
@@ -61,20 +65,20 @@ const ExperimentManager = () => {
             totalTime: 30000, // 总游戏时间 (毫秒)
         },
         baseline: {
-            countdownDuration: 20,
-            voiceDelay: 1000,
+            countdownDuration: 20, // 持续时间（秒）
+            voiceDelay: 1000, // 语音提示延迟 (毫秒)
         },
     });
 
     const [taskConfigs, setTaskConfigs] = useState({
         memory: {
-            phase1Images: 60,
-            phase2Images: 20,
-            phase1Time: 60,
-            phase2Time: 30,
+            phase1Images: 60, // 阶段一图片数量
+            phase2Images: 20, // 阶段二图片数量
+            phase1Time: 60, // 阶段一持续时间（秒）
+            phase2Time: 30, // 阶段二持续时间（秒）
         },
         difference: {
-            taskTime: 90,
+            taskTime: 90, // 持续时间（秒）
         },
     });
     useEffect(() => {
@@ -379,6 +383,18 @@ const ExperimentManager = () => {
                 </div>
             )}
             {currentStage === "setup" && (
+                <button
+                    onClick={handleTrialMode}
+                    className={styles.trialButton}>
+                    {!isTrialMode ? "试玩一下" : "退出试玩"}
+                </button>
+            )}
+            {isTrialMode && (
+                <BlinkGame
+                    config={gameConfigs.baseline} // 默认配置
+                />
+            )}
+            {currentStage === "setup" && !isTrialMode && (
                 <div className={styles.setupContainer}>
                     <DataExporter />
                     <button

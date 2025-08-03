@@ -4,12 +4,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
 
-const BaselineMode = ({ onGameEnd, shouldEnd, config }) => {
-    // const config = {
-    //     countdownDuration: 20,
-    //     voiceDelay: 1000,
-    // };
-
+const BaselineMode = ({
+    onGameEnd,
+    shouldEnd,
+    config: incomingConfig = {},
+}) => {
+    const defaultConfig = {
+        countdownDuration: 20,
+        voiceDelay: 1000,
+    };
+    const config = { ...defaultConfig, ...incomingConfig };
     const [gamePhase, setGamePhase] = useState("intro");
     const [remainingTime, setRemainingTime] = useState(
         config.countdownDuration
