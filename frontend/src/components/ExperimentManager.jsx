@@ -19,8 +19,8 @@ const ExperimentManager = () => {
 
     const [taskOrders, setTaskOrders] = useState({
         baseline: [
-            { id: "memory", name: "图片记忆" },
             { id: "difference", name: "找不同" },
+            { id: "memory", name: "图片记忆" },
         ],
         maze: [
             { id: "difference", name: "找不同" },
@@ -70,7 +70,7 @@ const ExperimentManager = () => {
         );
     };
 
-    const handleTaskComplete = (gameId) => {
+    const handleTaskComplete = (gameId, blinkData = null) => {
         const gameMode = gameOrder[currentGameIndex].id;
         const taskType = taskOrders[gameMode][currentTaskIndex].id;
         //屏幕任务数据格式
@@ -81,6 +81,7 @@ const ExperimentManager = () => {
             round: currentRound,
             gameId,
             timestamp: new Date().toISOString(),
+            blinkData,
         };
 
         setExperimentData((prev) => [...prev, taskData]);

@@ -1,0 +1,32 @@
+{
+  "game_id": "bd391239-ed76-44f2-88df-76bd6d28e2a8",
+  "game_type": "baseline",
+  "start_time": "2025-08-03T09:31:09.730496",
+  "end_time": "2025-08-03T09:31:45.062920",
+  "total_blinks": 3,
+  "left_total_blinks": 3,
+  "right_total_blinks": 1,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-03T09:31:26.434633",
+      "min_ear": 0.1721,
+      "avg_ear": 0.3392,
+      "duration": 0,
+      "type": "partial"
+    },
+    {
+      "timestamp": "2025-08-03T09:31:31.399472",
+      "min_ear": 0.1014,
+      "avg_ear": 0.2401,
+      "duration": 4.965,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T09:31:38.027796",
+      "min_ear": 0.0936,
+      "avg_ear": 0.3538,
+      "duration": 6.628,
+      "type": "full"
+    }
+  ]
+}

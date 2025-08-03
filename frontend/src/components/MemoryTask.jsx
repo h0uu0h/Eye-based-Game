@@ -1,10 +1,14 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useEffect, useState, useRef } from "react";
 import styles from "./MemoryTask.module.css";
+import BlinkDetector from "./BlinkDetector";
 
 const TOTAL_IMAGES = 100;
 const PHASE1_IMAGES = 60;
 const PHASE2_IMAGES = 20;
+const PHASE1_TIME = 60;
+const PHASE2_TIME = 30;
 
 const generateImagePaths = () => {
     const images = [];
@@ -15,6 +19,7 @@ const generateImagePaths = () => {
 };
 
 const MemoryTask = ({ onComplete, gameId }) => {
+    // const phaseRef = useRef(1);
     const [phase, setPhase] = useState(1);
     const [timeLeft, setTimeLeft] = useState(60);
     const [images, setImages] = useState([]);
@@ -22,9 +27,13 @@ const MemoryTask = ({ onComplete, gameId }) => {
     const timerRef = useRef(null);
     const allImages = useRef(generateImagePaths());
     const shownInPhase1 = useRef([]);
-
-    // 游戏ID
     const taskIdRef = useRef(gameId);
+
+    // 管理眨眼数据
+    const blinkDataRef = useRef([]);
+    const hasEndedRef = useRef(false);
+    const [detectionActive, setDetectionActive] = useState(false);
+    const [shouldEnd, setShouldEnd] = useState(false);
 
     useEffect(() => {
         // 随机选择60张图片用于阶段1
@@ -33,12 +42,31 @@ const MemoryTask = ({ onComplete, gameId }) => {
         setImages(shownInPhase1.current);
 
         // 开始倒计时
-        startTimer(60);
+        startTimer(PHASE1_TIME);
+
+        const detectionTimer = setTimeout(() => {
+            setDetectionActive(true);
+        }, 100);
 
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
+    useEffect(() => {
+        if (phase === 1) {
+            startTimer(PHASE1_TIME);
+        } else if (phase === 2) {
+            startTimer(PHASE2_TIME);
+        }
+    }, [phase]);
+
+    const handlePhaseEnd = () => {
+        if (phase === 1) {
+            startPhase2();
+        } else if (phase === 2) {
+            endTask();
+        }
+    };
 
     // 开始倒计时
     const startTimer = (seconds) => {
@@ -49,11 +77,8 @@ const MemoryTask = ({ onComplete, gameId }) => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
                     clearInterval(timerRef.current);
-                    if (phase === 1) {
-                        startPhase2();
-                    } else {
-                        endTask();
-                    }
+                    // 不再做逻辑跳转
+                    handlePhaseEnd();
                     return 0;
                 }
                 return prev - 1;
@@ -82,7 +107,8 @@ const MemoryTask = ({ onComplete, gameId }) => {
         setImages(phase2Images);
         setSelectedImages([]);
         setPhase(2);
-        startTimer(30);
+        // phaseRef.current = 2;
+        startTimer(PHASE2_TIME);
     };
 
     // 处理图片选择
@@ -99,18 +125,41 @@ const MemoryTask = ({ onComplete, gameId }) => {
     };
 
     // 处理确认按钮
-    const handleConfirm = () => {
-        endTask();
-    };
+    // const handleConfirm = () => {
+    //     endTask();
+    // };
 
     // 结束任务
     const endTask = () => {
+        if (hasEndedRef.current) return; // 避免多次调用
+        hasEndedRef.current = true;
         if (timerRef.current) clearInterval(timerRef.current);
-        onComplete(taskIdRef.current);
-    };
+        // 1. 结束眨眼检测
+        setShouldEnd(true);
 
+        // 2. 延迟调用 onComplete 以确保眨眼数据已s收集
+        const completeTimer = setTimeout(() => {
+            console.log("blinkdataRef", blinkDataRef.current);
+
+            onComplete(gameId, blinkDataRef.current);
+
+            // 重置检测状态
+            setDetectionActive(false);
+            setShouldEnd(false);
+            blinkDataRef.current = [];
+        }, 500);
+
+        return () => clearTimeout(completeTimer);
+    };
+    const handleBlinkData = (data) => {
+        console.log("taskdata", data);
+        blinkDataRef.current = data;
+    };
     return (
         <div className={styles.container}>
+            {detectionActive && (
+                <BlinkDetector onData={handleBlinkData} shouldEnd={shouldEnd} />
+            )}
             <div
                 className={`${styles.imageGrid} ${
                     phase === 1 ? styles.phase1Grid : styles.phase2Grid
@@ -141,13 +190,13 @@ const MemoryTask = ({ onComplete, gameId }) => {
             </div>
             <div className={styles.timer}>{timeLeft}秒</div>
 
-            {phase === 2 && (
+            {/* {phase === 2 && (
                 <button
                     onClick={handleConfirm}
                     className={styles.confirmButton}>
                     确认选择
                 </button>
-            )}
+            )} */}
 
             <div className={styles.gameId}>任务ID: {taskIdRef.current}</div>
         </div>

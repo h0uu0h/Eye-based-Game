@@ -9,12 +9,12 @@ const BlinkDetector = ({ onBlink, onData, shouldEnd }) => {
     const socketRef = useRef(null);
     const sendFrameIntervalRef = useRef(null);
     const capRef = useRef(0);
-
     // 眨眼统计
     const blinkStatsRef = useRef({
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
+        blinkDetails: [],
         startTime: Date.now(),
     });
 
@@ -25,25 +25,30 @@ const BlinkDetector = ({ onBlink, onData, shouldEnd }) => {
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                 });
-                const videoTrack = stream.getVideoTracks()[0];
-                const capabilities = videoTrack.getCapabilities().frameRate.max;
-                capRef.current = capabilities;
                 streamRef.current = stream;
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                 }
-
+                const videoTrack = stream.getVideoTracks()[0];
+                const capabilities = videoTrack.getCapabilities().frameRate.max;
+                capRef.current = capabilities;
                 // 连接到后端
                 socketRef.current = io(import.meta.env.VITE_SOCKET_URL, {
                     transports: ["websocket"],
                 });
 
-                // 开始检测
-                socketRef.current.emit("start_detection");
+                // 开始纯眨眼检测
+                socketRef.current.emit("start_detection", (response) => {
+                    if (response?.status === "detection_started") {
+                        console.log("纯眨眼检测已启动");
+                    }
+                });
 
                 // 设置发送帧的定时器
                 const canvas = document.createElement("canvas");
                 const ctx = canvas.getContext("2d");
+                let lastSent = Date.now();
+
                 sendFrameIntervalRef.current = setInterval(() => {
                     const video = videoRef.current;
                     if (!video || video.readyState !== 4) return;
@@ -61,25 +66,10 @@ const BlinkDetector = ({ onBlink, onData, shouldEnd }) => {
                         "image/jpeg",
                         0.6
                     );
-                }, 1000 / capRef.current); // 10fps
-
-                // 监听眨眼事件
-                socketRef.current.on("blink_event", (data) => {
-                    blinkStatsRef.current.totalBlinks = data.total;
-                    if (onBlink) onBlink(data);
-                });
-
-                socketRef.current.on("left_blink_event", () => {
-                    blinkStatsRef.current.leftBlinks += 1;
-                    blinkStatsRef.current.totalBlinks += 1;
-                });
-
-                socketRef.current.on("right_blink_event", () => {
-                    blinkStatsRef.current.rightBlinks += 1;
-                    blinkStatsRef.current.totalBlinks += 1;
-                });
+                }, 1000 / capRef.current); // ~30fps
             } catch (err) {
                 console.error("摄像头初始化失败:", err);
+                // 可选：通知父组件错误
             }
         };
 
@@ -94,6 +84,7 @@ const BlinkDetector = ({ onBlink, onData, shouldEnd }) => {
                 clearInterval(sendFrameIntervalRef.current);
             }
             if (socketRef.current) {
+                socketRef.current.off("detection_update");
                 socketRef.current.disconnect();
             }
         };
@@ -102,28 +93,46 @@ const BlinkDetector = ({ onBlink, onData, shouldEnd }) => {
     // 处理结束检测
     useEffect(() => {
         if (shouldEnd && socketRef.current) {
-            // 计算持续时间
-            const duration =
-                (Date.now() - blinkStatsRef.current.startTime) / 1000;
+            // 请求结束检测
+            socketRef.current.emit("end_detection", (response) => {
+                if (response?.status === "detection_ended") {
+                    const data = response.data;
 
-            // 组装最终数据
-            const finalData = {
-                ...blinkStatsRef.current,
-                duration,
-                timestamp: new Date().toISOString(),
-            };
+                    // 组装最终数据
+                    const finalData = {
+                        totalBlinks: data.total_blinks,
+                        leftBlinks: data.left_blinks,
+                        rightBlinks: data.right_blinks,
+                        blinkDetails: data.blink_details,
+                        duration: data.duration,
+                        timestamp: data.timestamp,
+                    };
+                    console.log("finalData", finalData);
+                    // 发送数据
+                    if (onData) onData(finalData);
 
-            // 发送数据
-            if (onData) onData(finalData);
-
-            // 通知后端结束检测
-            socketRef.current.emit("end_detection");
+                    // 重置本地状态
+                    blinkStatsRef.current = {
+                        totalBlinks: 0,
+                        leftBlinks: 0,
+                        rightBlinks: 0,
+                        blinkDetails: [],
+                        startTime: Date.now(),
+                    };
+                }
+            });
         }
     }, [shouldEnd, onData]);
 
     return (
-        <div style={{ display: "none" }}>
-            <video ref={videoRef} autoPlay muted playsInline />
+        <div>
+            <video
+                ref={videoRef}
+                autoPlay
+                muted
+                playsInline
+                style={{ transform: "scaleX(-1)", visibility: "hidden",position:"absolute",zIndex:"-1000", }}
+            />
         </div>
     );
 };

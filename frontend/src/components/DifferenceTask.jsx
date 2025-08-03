@@ -2,7 +2,10 @@
 /* eslint-disable react/prop-types */
 import { useEffect, useState, useRef } from "react";
 import styles from "./DifferenceTask.module.css";
+import BlinkDetector from "./BlinkDetector";
+
 const STORAGE_KEY = "usedDifferencePairs";
+const TASK_TIME = 120;
 
 // 从 localStorage 获取已使用图对 ID 数组
 const getUsedPairsFromStorage = () => {
@@ -35,13 +38,22 @@ const DifferenceTask = ({ onComplete, gameId }) => {
     const [usedPairs, setUsedPairs] = useState([]); // 记录已使用的图片对
     const timerRef = useRef(null);
     const taskIdRef = useRef(gameId);
-    // 新增状态：管理眨眼数据
-    const [blinkData, setBlinkData] = useState(null);
-    const [endBlinkDetection, setEndBlinkDetection] = useState(false);
+    // const endBlinkDetectRef = useRef(false);
+
+    // 管理眨眼数据
+    const blinkDataRef = useRef([]);
+    const hasEndedRef = useRef(false);
+    const [detectionActive, setDetectionActive] = useState(false);
+    const [shouldEnd, setShouldEnd] = useState(false);
 
     useEffect(() => {
         selectRandomPair();
-        startTimer(120);
+        startTimer(TASK_TIME);
+
+        const detectionTimer = setTimeout(() => {
+            setDetectionActive(true);
+        }, 100);
+
         return () => {
             if (timerRef.current) clearInterval(timerRef.current);
         };
@@ -97,12 +109,37 @@ const DifferenceTask = ({ onComplete, gameId }) => {
 
     // 结束任务
     const endTask = () => {
+        if (hasEndedRef.current) return; // 避免多次调用
+        hasEndedRef.current = true;
         if (timerRef.current) clearInterval(timerRef.current);
-        onComplete(taskIdRef.current);
+        // 1. 结束眨眼检测
+        setShouldEnd(true);
+
+        // 2. 延迟调用 onComplete 以确保眨眼数据已s收集
+        const completeTimer = setTimeout(() => {
+            console.log("blinkdataRef", blinkDataRef.current);
+
+            onComplete(gameId, blinkDataRef.current);
+
+            // 重置检测状态
+            setDetectionActive(false);
+            setShouldEnd(false);
+            blinkDataRef.current = [];
+        }, 500);
+
+        return () => clearTimeout(completeTimer);
+    };
+
+    const handleBlinkData = (data) => {
+        console.log("taskdata", data);
+        blinkDataRef.current = data;
     };
 
     return (
         <div className={styles.container}>
+            {detectionActive && (
+                <BlinkDetector onData={handleBlinkData} shouldEnd={shouldEnd} />
+            )}
             <h2>找不同任务</h2>
             <div className={styles.timer}>{timeLeft}秒</div>
 
