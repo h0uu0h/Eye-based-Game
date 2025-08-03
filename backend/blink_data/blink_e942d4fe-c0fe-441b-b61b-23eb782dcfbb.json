@@ -1,0 +1,88 @@
+{
+  "game_id": "e942d4fe-c0fe-441b-b61b-23eb782dcfbb",
+  "game_type": "baseline",
+  "start_time": "2025-08-03T14:25:44.035909",
+  "end_time": "2025-08-03T14:25:59.175199",
+  "total_blinks": 11,
+  "left_total_blinks": 1,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-03T14:25:44.869877",
+      "min_ear": 0.1923,
+      "avg_ear": 0.3118,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:45.419129",
+      "min_ear": 0.1577,
+      "avg_ear": 0.3122,
+      "duration": 0.549,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:47.834089",
+      "min_ear": 0.0799,
+      "avg_ear": 0.3449,
+      "duration": 2.415,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:48.467290",
+      "min_ear": 0.1101,
+      "avg_ear": 0.3425,
+      "duration": 0.633,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:49.183788",
+      "min_ear": 0.0907,
+      "avg_ear": 0.2635,
+      "duration": 0.716,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:49.807997",
+      "min_ear": 0.0643,
+      "avg_ear": 0.3378,
+      "duration": 0.624,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:52.581706",
+      "min_ear": 0.1199,
+      "avg_ear": 0.271,
+      "duration": 2.774,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:56.546517",
+      "min_ear": 0.056,
+      "avg_ear": 0.3346,
+      "duration": 3.965,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:57.599041",
+      "min_ear": 0.0698,
+      "avg_ear": 0.3356,
+      "duration": 1.053,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:58.231338",
+      "min_ear": 0.0687,
+      "avg_ear": 0.3211,
+      "duration": 0.632,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-03T14:25:58.785429",
+      "min_ear": 0.0541,
+      "avg_ear": 0.2749,
+      "duration": 0.554,
+      "type": "full"
+    }
+  ]
+}

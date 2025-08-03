@@ -5,7 +5,7 @@ import styles from "./DifferenceTask.module.css";
 import BlinkDetector from "./BlinkDetector";
 
 const STORAGE_KEY = "usedDifferencePairs";
-const TASK_TIME = 120;
+// const TASK_TIME = 120;
 
 // 从 localStorage 获取已使用图对 ID 数组
 const getUsedPairsFromStorage = () => {
@@ -31,7 +31,8 @@ const generateImagePairs = () => {
     return pairs;
 };
 
-const DifferenceTask = ({ onComplete, gameId }) => {
+const DifferenceTask = ({ onComplete, gameId, config }) => {
+    const { taskTime = 120 } = config;
     const [timeLeft, setTimeLeft] = useState(120);
     const [currentPair, setCurrentPair] = useState(null);
     const [foundDifferences, setFoundDifferences] = useState([]);
@@ -48,7 +49,7 @@ const DifferenceTask = ({ onComplete, gameId }) => {
 
     useEffect(() => {
         selectRandomPair();
-        startTimer(TASK_TIME);
+        startTimer(taskTime);
 
         const detectionTimer = setTimeout(() => {
             setDetectionActive(true);

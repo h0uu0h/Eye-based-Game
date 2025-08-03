@@ -14,6 +14,7 @@ import BaselineMode from "./BaselineMode";
 
 const BlinkGame = ({
     mode: externalMode = "baseline",
+    config,
     onComplete,
     gameId,
     experimentId,
@@ -346,6 +347,7 @@ const BlinkGame = ({
                     <MazeRescueMode
                         onGameEnd={handleGameEnd}
                         shouldEnd={gameEnded}
+                        config={config}
                     />
                 );
             case "dice":
@@ -353,6 +355,7 @@ const BlinkGame = ({
                     <DiceSpaceMode
                         onGameEnd={handleGameEnd}
                         shouldEnd={gameEnded}
+                        config={config}
                     />
                 );
             case "baseline":
@@ -360,6 +363,7 @@ const BlinkGame = ({
                     <BaselineMode
                         onGameEnd={handleGameEnd}
                         shouldEnd={gameEnded}
+                        config={config}
                     />
                 );
             default:
@@ -367,6 +371,7 @@ const BlinkGame = ({
                     <BaselineMode
                         onGameEnd={handleGameEnd}
                         shouldEnd={gameEnded}
+                        config={config}
                     />
                 );
         }

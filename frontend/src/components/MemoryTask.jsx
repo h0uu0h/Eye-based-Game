@@ -5,10 +5,10 @@ import styles from "./MemoryTask.module.css";
 import BlinkDetector from "./BlinkDetector";
 
 const TOTAL_IMAGES = 100;
-const PHASE1_IMAGES = 60;
-const PHASE2_IMAGES = 20;
-const PHASE1_TIME = 60;
-const PHASE2_TIME = 30;
+// const PHASE1_IMAGES = 60;
+// const PHASE2_IMAGES = 20;
+// const PHASE1_TIME = 60;
+// const PHASE2_TIME = 30;
 
 const generateImagePaths = () => {
     const images = [];
@@ -18,7 +18,13 @@ const generateImagePaths = () => {
     return images;
 };
 
-const MemoryTask = ({ onComplete, gameId }) => {
+const MemoryTask = ({ onComplete, gameId, config }) => {
+    const {
+        phase1Images = 60,
+        phase2Images = 20,
+        phase1Time = 60,
+        phase2Time = 20,
+    } = config;
     // const phaseRef = useRef(1);
     const [phase, setPhase] = useState(1);
     const [timeLeft, setTimeLeft] = useState(60);
@@ -38,11 +44,11 @@ const MemoryTask = ({ onComplete, gameId }) => {
     useEffect(() => {
         // 随机选择60张图片用于阶段1
         const shuffled = [...allImages.current].sort(() => Math.random() - 0.5);
-        shownInPhase1.current = shuffled.slice(0, PHASE1_IMAGES);
+        shownInPhase1.current = shuffled.slice(0, phase1Images);
         setImages(shownInPhase1.current);
 
         // 开始倒计时
-        startTimer(PHASE1_TIME);
+        startTimer(phase1Time);
 
         const detectionTimer = setTimeout(() => {
             setDetectionActive(true);
@@ -54,9 +60,9 @@ const MemoryTask = ({ onComplete, gameId }) => {
     }, []);
     useEffect(() => {
         if (phase === 1) {
-            startTimer(PHASE1_TIME);
+            startTimer(phase1Time);
         } else if (phase === 2) {
-            startTimer(PHASE2_TIME);
+            startTimer(phase2Time);
         }
     }, [phase]);
 
@@ -98,17 +104,17 @@ const MemoryTask = ({ onComplete, gameId }) => {
         );
         const selectedFromNew = [...remainingImages]
             .sort(() => Math.random() - 0.5)
-            .slice(0, PHASE2_IMAGES - numFromPhase1);
+            .slice(0, phase2Images - numFromPhase1);
 
-        const phase2Images = [...selectedFromPhase1, ...selectedFromNew].sort(
+        const phase2ImagesLi = [...selectedFromPhase1, ...selectedFromNew].sort(
             () => Math.random() - 0.5
         );
 
-        setImages(phase2Images);
+        setImages(phase2ImagesLi);
         setSelectedImages([]);
         setPhase(2);
         // phaseRef.current = 2;
-        startTimer(PHASE2_TIME);
+        startTimer(phase2Time);
     };
 
     // 处理图片选择

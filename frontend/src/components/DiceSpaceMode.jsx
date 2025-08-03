@@ -15,18 +15,18 @@ import levelUpSound from "/sounds/dice/levelup.mp3";
 import victorySound from "/sounds/dice/victory.mp3";
 import failSound from "/sounds/dice/fail.mp3";
 
-const DiceSpaceMode = ({ onGameEnd, shouldEnd }) => {
+const DiceSpaceMode = ({ onGameEnd, shouldEnd, config }) => {
     // ================ 游戏配置 ================
-    const config = {
-        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-        bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
-        bonusPerBlink: 1, // 每次眨眼增加的点数
-        switchSequence: ["right", "left", "right"], // 切换骰子顺序
-        voiceDelay: 1000, // 语音提示延迟 (毫秒)
-        promptTimeout: 1000, // 操作提示超时 (毫秒)
-        totalTime: 60000, // 总游戏时间 (毫秒)
-        minPoints: 14, // 成功所需的最小点数
-    };
+    // const config = {
+    //     closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+    //     bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
+    //     bonusPerBlink: 1, // 每次眨眼增加的点数
+    //     switchSequence: ["right", "left", "right"], // 切换骰子顺序
+    //     voiceDelay: 1000, // 语音提示延迟 (毫秒)
+    //     promptTimeout: 1000, // 操作提示超时 (毫秒)
+    //     totalTime: 60000, // 总游戏时间 (毫秒)
+    //     minPoints: 14, // 成功所需的最小点数
+    // };
 
     // ================ 游戏状态 ================
     const [gamePhase, setGamePhase] = useState("intro"); // intro, rolling, readyRoll, throwPrompt, bonusWindow, switching, success, fail

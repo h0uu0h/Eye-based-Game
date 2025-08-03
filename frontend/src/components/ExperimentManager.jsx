@@ -38,6 +38,74 @@ const ExperimentManager = () => {
     const [experimentData, setExperimentData] = useState([]);
     const experimentIdRef = useRef(null); // 同步存储 experimentId
 
+    // ================ 游戏配置 ================
+    const [showConfigPanel, setShowConfigPanel] = useState(false);
+    const [gameConfigs, setGameConfigs] = useState({
+        dice: {
+            closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+            bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
+            bonusPerBlink: 1, // 每次眨眼增加的点数
+            switchSequence: ["right", "left", "right"], // 切换骰子顺序
+            voiceDelay: 1000, // 语音提示延迟 (毫秒)
+            promptTimeout: 1000, // 操作提示超时 (毫秒)
+            totalTime: 60000, // 总游戏时间 (毫秒)
+            minPoints: 14, // 成功所需的最小点数
+        },
+        maze: {
+            closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
+            blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
+            timeReward: 1000, // 每次奖励时间 (毫秒)
+            turnSequence: ["right", "left", "right"], // 转向顺序
+            voiceDelay: 1000, // 语音提示延迟 (毫秒)
+            promptTimeout: 1000, // 操作提示超时 (毫秒)
+            totalTime: 30000, // 总游戏时间 (毫秒)
+        },
+        baseline: {
+            countdownDuration: 20,
+            voiceDelay: 1000,
+        },
+    });
+
+    const [taskConfigs, setTaskConfigs] = useState({
+        memory: {
+            phase1Images: 60,
+            phase2Images: 20,
+            phase1Time: 60,
+            phase2Time: 30,
+        },
+        difference: {
+            taskTime: 90,
+        },
+    });
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "c" || e.key === "C") {
+                setShowConfigPanel((prev) => !prev);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, []);
+    const handleConfigChange = (type, id, key, value) => {
+        const updateConfig = (prevConfigs) => ({
+            ...prevConfigs,
+            [id]: {
+                ...prevConfigs[id],
+                [key]:
+                    typeof prevConfigs[id][key] === "number"
+                        ? Number(value)
+                        : value,
+            },
+        });
+
+        if (type === "game") {
+            setGameConfigs(updateConfig);
+        } else {
+            setTaskConfigs(updateConfig);
+        }
+    };
+    // ================ 实验方法 ================
     const startExperiment = () => {
         if (!subjectIdRef.current) {
             alert("请输入实验者ID");
@@ -244,6 +312,72 @@ const ExperimentManager = () => {
 
     return (
         <div className={styles.container}>
+            {showConfigPanel && (
+                <div className={styles.configPanel}>
+                    <h3>任务配置</h3>
+                    {Object.entries(taskConfigs).map(([taskId, taskConfig]) => (
+                        <div key={taskId}>
+                            <h4>{taskId}</h4>
+                            {Object.entries(taskConfig).map(([key, value]) => (
+                                <div key={key}>
+                                    <label>{key}:</label>
+                                    <input
+                                        type={
+                                            typeof value === "number"
+                                                ? "number"
+                                                : "text"
+                                        }
+                                        value={value}
+                                        onChange={(e) =>
+                                            handleConfigChange(
+                                                "task",
+                                                taskId,
+                                                key,
+                                                e.target.value
+                                            )
+                                        }
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                    <h3>游戏配置</h3>
+                    {Object.entries(gameConfigs).map(([gameId, gameConfig]) => (
+                        <div key={gameId}>
+                            <h4>{gameId}</h4>
+                            {Object.entries(gameConfig).map(([key, value]) => (
+                                <div key={key}>
+                                    <label>{key}:</label>
+                                    <input
+                                        type={
+                                            typeof value === "number"
+                                                ? "number"
+                                                : "text"
+                                        }
+                                        value={
+                                            Array.isArray(value)
+                                                ? value.join(",")
+                                                : value
+                                        }
+                                        onChange={(e) =>
+                                            handleConfigChange(
+                                                "game",
+                                                gameId,
+                                                key,
+                                                Array.isArray(value)
+                                                    ? e.target.value
+                                                          .split(",")
+                                                          .map(Number)
+                                                    : e.target.value
+                                            )
+                                        }
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
             {currentStage === "setup" && (
                 <div className={styles.setupContainer}>
                     <DataExporter />
@@ -373,6 +507,7 @@ const ExperimentManager = () => {
                             return (
                                 <BlinkGame
                                     mode={currentGameId}
+                                    config={gameConfigs[currentGameId]}
                                     onComplete={handleBlinkGameComplete}
                                     experimentId={experimentIdRef.current}
                                     gameId={blinkGameId}
@@ -383,6 +518,7 @@ const ExperimentManager = () => {
                         if (currentTask.id === "memory") {
                             return (
                                 <MemoryTask
+                                    config={taskConfigs.memory}
                                     onComplete={handleTaskComplete}
                                     gameId={taskGameId}
                                 />
@@ -390,6 +526,7 @@ const ExperimentManager = () => {
                         } else {
                             return (
                                 <DifferenceTask
+                                    config={taskConfigs.difference}
                                     onComplete={handleTaskComplete}
                                     gameId={taskGameId}
                                 />
@@ -401,41 +538,9 @@ const ExperimentManager = () => {
 
             {currentStage === "completed" && (
                 <div className={styles.completedContainer}>
-                    <h2>实验完成!</h2>
-                    <p>实验者: {subjectId}</p>
-                    <p>完成时间: {new Date().toLocaleString()}</p>
-
-                    <div className={styles.dataSummary}>
-                        <h3>实验数据统计</h3>
-                        <p>
-                            总任务数:{" "}
-                            {
-                                experimentData.filter((d) => d.type === "task")
-                                    .length
-                            }
-                        </p>
-                        <p>
-                            总眨眼游戏数:{" "}
-                            {
-                                experimentData.filter((d) => d.type === "blink")
-                                    .length
-                            }
-                        </p>
-                        <p>
-                            眨眼游戏模式:{" "}
-                            {experimentData
-                                .filter((d) => d.type === "blink")
-                                .map((d) => d.gameMode)
-                                .join(", ")}
-                        </p>
-                        <p>
-                            任务类型:{" "}
-                            {experimentData
-                                .filter((d) => d.type === "task")
-                                .map((d) => d.taskType)
-                                .join(", ")}
-                        </p>
-                    </div>
+                    <h1>实验完成!</h1>
+                    <h2>实验者: {subjectId}</h2>
+                    <h2>完成时间: {new Date().toLocaleString()}</h2>
                     <DataExporter
                         experimentData={experimentData}
                         subjectId={subjectId}
