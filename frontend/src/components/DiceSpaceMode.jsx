@@ -15,16 +15,20 @@ import levelUpSound from "/sounds/dice/levelup.mp3";
 import victorySound from "/sounds/dice/victory.mp3";
 import failSound from "/sounds/dice/fail.mp3";
 
-const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) => {
+const DiceSpaceMode = ({
+    onGameEnd,
+    shouldEnd,
+    config: incomingConfig = {},
+}) => {
     // ================ 游戏配置 ================
     const defaultConfig = {
-        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-        bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
-        bonusPerBlink: 1, // 每次眨眼增加的点数
-        switchSequence: ["right", "left", "right"], // 切换骰子顺序
+        closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
+        bonusWindowDuration: 2000, // 奖励窗口时间 (毫秒)
+        bonusPerBlink: 0.5, // 每次眨眼增加的点数
+        switchSequence: ["right", "left"], // 切换骰子顺序
         voiceDelay: 1000, // 语音提示延迟 (毫秒)
         promptTimeout: 1000, // 操作提示超时 (毫秒)
-        totalTime: 60000, // 总游戏时间 (毫秒)
+        totalTime: 20000, // 总游戏时间 (毫秒)
         minPoints: 14, // 成功所需的最小点数
     };
     const config = { ...defaultConfig, ...incomingConfig };
@@ -175,12 +179,14 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         bonusBlinksRef.current = 0;
         setBonusBlinks(0);
         currentDice.current = 0;
-        dicePointsRef.current = [];
+        dicePointsRef.current = Array(config.switchSequence.length + 1).fill(0);
+        setDicePoints([...dicePointsRef.current]);
         totalPointsRef.current = 0;
         setDicePoints([]);
         setTotalPoints(0);
 
         statsRef.current = {
+            minPoints: 14,
             totalBlinks: 0,
             leftBlinks: 0,
             rightBlinks: 0,
@@ -206,16 +212,20 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         playSound("bg", { loop: true, volume: 0.3 });
 
         // 游戏开始语音
-        await speakAndWait(
-            "掷出4个骰子并使点数之和大于14即可离开骰子空间，闭双眼开始摇第一个骰子，并在听到提示后掷出。"
-        );
-
+        await speakAndWait("闭双眼开始摇第一个骰子。");
+        if (gameState.current.eyeState === "closed") {
+            startRolling();
+        }
         // 开始倒计时
         gameTimers.current.countdown = setInterval(() => {
             setRemainingTime((prev) => {
                 const newTime = prev - 1;
                 if (newTime <= 0) {
-                    endGame(false);
+                    if (totalPointsRef.current >= config.minPoints) {
+                        endGame(true);
+                    } else {
+                        endGame(false);
+                    }
                     return 0;
                 }
                 return newTime;
@@ -316,12 +326,11 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         setTotalPoints(newTotal);
 
         setGamePhase("readyRoll");
-        speak("摇骰完成，请眨眼两次掷出骰子");
 
         // 提示玩家眨眼进入奖励窗口
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "readyRoll") {
-                speak("眨眼两次增加骰子点数");
+                speak("多次眨眼");
                 setGamePhase("throwPrompt");
 
                 gameTimers.current.prompt = setTimeout(() => {
@@ -349,8 +358,9 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         stopSound("timer");
 
         // 计算奖励点数
-        const bonusPoints =
-            Math.floor(bonusBlinksRef.current / 2) * config.bonusPerBlink;
+        const bonusPoints = Math.floor(
+            bonusBlinksRef.current * config.bonusPerBlink
+        );
         statsRef.current.bonusPoints += bonusPoints;
         setStats((prev) => ({
             ...prev,
@@ -359,8 +369,12 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
 
         // 更新当前骰子点数
         const newDicePoints = [...dicePointsRef.current];
+
         newDicePoints[currentDice.current] =
             (newDicePoints[currentDice.current] || 0) + bonusPoints;
+        if (newDicePoints[currentDice.current] >= 6) {
+            newDicePoints[currentDice.current] = 6;
+        }
         dicePointsRef.current = newDicePoints;
         setDicePoints(newDicePoints);
 
@@ -371,10 +385,15 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         );
         totalPointsRef.current = newTotal;
         setTotalPoints(newTotal);
+        const isLastDice = currentDice.current === config.switchSequence.length;
 
+        if (isLastDice) {
+            setGamePhase("end");
+            return;
+        }
         // 提示切换方向
         const direction = config.switchSequence[currentDice.current];
-        speak(`往${direction === "left" ? "左" : "右"}眨眼掷出骰子`);
+        speak(`${direction === "left" ? "左" : "右"}眨`);
         setGamePhase("switching");
 
         // 如果1秒内没有正确眨眼，提示玩家
@@ -400,14 +419,7 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         setStats({ ...statsRef.current });
 
         // 检查是否完成所有骰子
-        if (currentDice.current >= config.switchSequence.length - 1) {
-            // 所有骰子掷出完毕，检查点数
-            if (totalPointsRef.current >= config.minPoints) {
-                endGame(true);
-            } else {
-                endGame(false);
-            }
-        } else {
+        if (currentDice.current < config.switchSequence.length) {
             // 重置状态并切换到下一个骰子
             gameState.current.closeEyeStart = 0;
             gameState.current.accumulatedCloseTime = 0;
@@ -416,7 +428,7 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
             const nextDice = currentDice.current + 1;
             currentDice.current = nextDice;
             setGamePhase("rolling");
-            speak(`闭双眼开始摇第${nextDice + 1}个骰子`);
+            speak(`闭双眼`);
         }
     }, [speak, playSound, currentDice]);
 
@@ -596,7 +608,7 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
         socket.current.on("right_blink_event", handleRightBlink);
 
         // 只在首次挂载时播放初始语音
-        speak("欢迎来到骰子空间游戏，请眨双眼两次开始游戏");
+        speak("眨双眼两次开始游戏。");
 
         return () => {
             socket.current.disconnect();
@@ -618,7 +630,11 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
             gameState.current.phase !== "success" &&
             gameState.current.phase !== "fail"
         ) {
-            endGame(false);
+            if (totalPointsRef.current >= config.minPoints) {
+                endGame(true);
+            } else {
+                endGame(false);
+            }
         }
     }, [shouldEnd, endGame]);
 
@@ -641,6 +657,8 @@ const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {}, }) =
                         ? "左"
                         : "右"
                 }眨眼切换到下一个骰子`;
+            case "end":
+                return "投掷完毕";
             case "success":
                 return "恭喜成功离开骰子空间！";
             case "fail":

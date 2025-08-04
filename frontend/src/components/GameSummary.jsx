@@ -4,30 +4,6 @@ const GameSummary = ({ data, onClose }) => {
 
     const renderSummary = () => {
         const { mode } = data;
-        // if (mode === "classic") {
-        //     const total = data.score + data.missCount;
-        //     return (
-        //         <>
-        //             <p>模式：经典模式</p>
-        //             <p>成功眨眼次数：{data.score}</p>
-        //             <p>总眨眼尝试：{total}</p>
-        //             <p>成功率：{(data.successRate * 100).toFixed(2)}%</p>
-        //         </>
-        //     );
-        // }
-
-        // 在renderSummary函数中添加jump模式的结算
-        // if (mode === "jump") {
-        //     return (
-        //         <>
-        //             <p>模式：踩云朵冒险</p>
-        //             <p>尝试次数：{data.totalJumps}</p>
-        //             <p>成功跳跃：{data.successfulJumps}</p>
-        //             <p>总高度：{data.totalHeight.toFixed(1)}米</p>
-        //             {data.achievement && <p>🎖️ 成就：{data.achievement}</p>}
-        //         </>
-        //     );
-        // }
         if (mode === "baseline") {
             return (
                 <>
@@ -42,11 +18,11 @@ const GameSummary = ({ data, onClose }) => {
                 <>
                     <p>模式：骰子空间</p>
                     <p>
-                        总点数：{data.totalPoints} (目标: {data.minPoints})
+                        总点数：{data.totalPoints} （目标: {data.minPoints}）
                     </p>
                     <p>骰子点数：{data.dicePoints.join(", ")}</p>
                     <p>
-                        眨眼次数：总{data.blinkCount}次 (左{data.leftBlinks}/右
+                        眨眼次数：总{data.totalBlinks}次 (左{data.leftBlinks}/右
                         {data.rightBlinks})
                     </p>
                     <p>
@@ -68,11 +44,14 @@ const GameSummary = ({ data, onClose }) => {
                 <>
                     <p>模式：迷宫救援</p>
                     <p>
-                        用时：{data.finalTime.toFixed(2)}秒 (奖励: -
-                        {(data.timeBonus / 1000).toFixed(2)}秒)
+                        用时：
+                        {data.finalTime > 0
+                            ? `${data.finalTime.toFixed(2)}秒`
+                            : "未完成"}{" "}
+                        (奖励: -{(data.timeBonus / 1000).toFixed(2)}秒)
                     </p>
                     <p>
-                        眨眼次数：总{data.blinkCount}次 (左{data.leftBlinks}/右
+                        眨眼次数：总{data.totalBlinks}次 (左{data.leftBlinks}/右
                         {data.rightBlinks})
                     </p>
                     <p>

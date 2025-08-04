@@ -38,6 +38,25 @@ const BlinkGame = ({
     const [gameStarted, setGameStarted] = useState(false);
     const [gameEnded, setGameEnded] = useState(false);
 
+    const maze60Config = {
+        closeEyeTime: [4, 5, 6], // 随机闭眼时间 (秒)
+        blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
+        timeReward: 500, // 每次奖励时间 (毫秒)
+        turnSequence: ["right", "left"], // 转向顺序
+        voiceDelay: 1000, // 语音提示延迟 (毫秒)
+        promptTimeout: 1000, // 操作提示超时 (毫秒)
+        totalTime: 60000, // 总游戏时间 (毫秒)
+    };
+    const dice60Config = {
+        closeEyeTime: [4, 5, 6], // 随机闭眼时间 (秒)
+        bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
+        bonusPerBlink: 0.5, // 每次眨眼增加的点数
+        switchSequence: ["right", "left"], // 切换骰子顺序
+        voiceDelay: 1000, // 语音提示延迟 (毫秒)
+        promptTimeout: 1000, // 操作提示超时 (毫秒)
+        totalTime: 60000, // 总游戏时间 (毫秒)
+        minPoints: 14, // 成功所需的最小点数
+    };
     const handleToggleGame = () => {
         if (!gameStarted) {
             // 开始游戏
@@ -71,6 +90,9 @@ const BlinkGame = ({
         // 发送结束游戏请求到后端
         socket.current.emit("end_game", (response) => {
             if (response?.status === "game_ended") {
+                console.log("resultRef.current", resultRef.current);
+
+                setSummary(resultRef.current);
                 console.log("收到后端游戏数据:", response.game_data);
                 const {
                     blinkCount,
@@ -115,9 +137,8 @@ const BlinkGame = ({
                         JSON.stringify(experimentBlinkHistory)
                     );
                 }
-
                 // 更新摘要显示完整数据
-                setSummary(resultRef.current);
+                // setSummary(resultRef.current);
             }
 
             // 关闭游戏
@@ -331,6 +352,22 @@ const BlinkGame = ({
     // mode change
     const renderModeComponent = () => {
         switch (mode) {
+            case "maze60":
+                return (
+                    <MazeRescueMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                        config={maze60Config}
+                    />
+                );
+            case "dice_60":
+                return (
+                    <DiceSpaceMode
+                        onGameEnd={handleGameEnd}
+                        shouldEnd={gameEnded}
+                        config={dice60Config}
+                    />
+                );
             case "maze":
                 return (
                     <MazeRescueMode
@@ -399,8 +436,10 @@ const BlinkGame = ({
                             className={styles.selectBox}
                             onChange={(e) => setMode(e.target.value)}>
                             <option value="baseline">基线模式</option>
-                            <option value="maze">迷宫模式</option>
-                            <option value="dice">骰子模式</option>
+                            <option value="maze">迷宫20</option>
+                            <option value="dice">骰子20</option>
+                            <option value="maze60">迷宫60</option>
+                            <option value="dice60">骰子60</option>
                         </select>
                     </div>
                     <button

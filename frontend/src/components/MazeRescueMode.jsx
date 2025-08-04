@@ -22,13 +22,13 @@ const MazeRescueMode = ({
 }) => {
     // ================ 游戏配置 ================
     const defaultConfig = {
-        closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-        blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
-        timeReward: 1000, // 每次奖励时间 (毫秒)
-        turnSequence: ["right", "left", "right"], // 转向顺序
+        closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
+        blinkWindowDuration: 2000, // 眨眼奖励窗口时间 (毫秒)
+        timeReward: 500, // 每次奖励时间 (毫秒)
+        turnSequence: ["right", "left"], // 转向顺序
         voiceDelay: 1000, // 语音提示延迟 (毫秒)
         promptTimeout: 1000, // 操作提示超时 (毫秒)
-        totalTime: 30000, // 总游戏时间 (毫秒)
+        totalTime: 20000, // 总游戏时间 (毫秒)
     };
     const config = { ...defaultConfig, ...incomingConfig };
 
@@ -38,6 +38,7 @@ const MazeRescueMode = ({
     const [blinkCount, setBlinkCount] = useState(0);
     const [blinkInWindow, setBlinkInWindow] = useState(0);
     const [stats, setStats] = useState({
+        useTime: 0,
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
@@ -48,8 +49,11 @@ const MazeRescueMode = ({
 
     // ================ Refs ================
     const socket = useRef(null);
+    const bonusBlinksRef = useRef(0);
     const currentTurn = useRef(0);
+    const arriveRef = useRef(false);
     const statsRef = useRef({
+        useTime: 0,
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
@@ -67,6 +71,7 @@ const MazeRescueMode = ({
     const gameState = useRef({
         phase: "intro",
         eyeState: "open",
+        gameStart: 0,
         closeEyeStart: 0,
         accumulatedCloseTime: 0,
         targetCloseTime: 0,
@@ -155,14 +160,15 @@ const MazeRescueMode = ({
         Object.values(gameTimers.current).forEach((timer) => {
             if (timer) clearTimeout(timer);
         });
-
         // 重置游戏状态
         setGamePhase("moving");
         currentTurn.current = 0;
         setRemainingTime(config.totalTime / 1000);
         setBlinkCount(0);
+        bonusBlinksRef.current = 0;
         setBlinkInWindow(0);
         statsRef.current = {
+            useTime: 0,
             totalBlinks: 0,
             leftBlinks: 0,
             rightBlinks: 0,
@@ -188,16 +194,18 @@ const MazeRescueMode = ({
         playSound("bg", { loop: true, volume: 0.3 });
 
         // 游戏开始语音
-        await speakAndWait(
-            "您的好友正在迷宫的另一侧等待救援，根据声音线索尽快过去吧！闭眼开始前进，并在听到提示后停止。"
-        );
+        await speakAndWait("闭双眼开始第一段前行。");
 
+        gameState.current.gameStart = Date.now();
+        if (gameState.current.eyeState === "closed") {
+            startMoving();
+        }
         // 开始倒计时
         gameTimers.current.countdown = setInterval(() => {
             setRemainingTime((prev) => {
                 const newTime = prev - 1;
                 if (newTime <= 0) {
-                    endGame(false);
+                    endGame(arriveRef.current);
                     return 0;
                 }
                 return newTime;
@@ -287,12 +295,11 @@ const MazeRescueMode = ({
         }));
 
         setGamePhase("wallHit");
-        speak("睁双眼停止移动");
 
         // 提示玩家眨眼进入奖励窗口
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "wallHit") {
-                speak("眨眼两次提示方向和奖励时间");
+                speak("多次眨眼");
                 setGamePhase("blinkPrompt");
 
                 // 如果1秒内没有眨眼两次，自动进入奖励窗口
@@ -308,10 +315,19 @@ const MazeRescueMode = ({
     const startBlinkWindow = useCallback(() => {
         setGamePhase("blinkWindow");
         setBlinkInWindow(0);
+        bonusBlinksRef.current = 0;
         playSound("timer");
 
         // 3秒后结束奖励窗口
         gameTimers.current.blinkWindow = setTimeout(() => {
+            const isLastTurn =
+                currentTurn.current === config.turnSequence.length;
+            if (isLastTurn) {
+                statsRef.current.useTime =
+                    Date.now() - gameState.current.gameStart;
+                console.log("sss", statsRef.current.useTime);
+                arriveRef.current = true;
+            }
             endBlinkWindow();
         }, config.blinkWindowDuration);
     }, [playSound]);
@@ -320,19 +336,25 @@ const MazeRescueMode = ({
         stopSound("timer");
 
         // 计算时间奖励
-        const bonus = Math.floor(blinkInWindow / 2) * config.timeReward;
+        const bonus =
+            Math.floor(bonusBlinksRef.current / 2) * config.timeReward * 2;
         statsRef.current.timeBonus += bonus;
         setStats((prev) => ({
             ...prev,
             timeBonus: statsRef.current.timeBonus,
         }));
+        const isLastTurn = currentTurn.current === config.turnSequence.length;
 
+        if (isLastTurn) {
+            setGamePhase("end");
+            return;
+        }
         // 更新剩余时间
-        setRemainingTime((prev) => prev + bonus / 1000);
+        // setRemainingTime((prev) => prev + bonus / 1000);
 
         // 提示转向方向
         const direction = config.turnSequence[currentTurn.current];
-        speak(`往${direction === "left" ? "左" : "右"}转向`);
+        speak(`${direction === "left" ? "左" : "右"}转`);
         setGamePhase("turning");
 
         // 如果1秒内没有正确眨眼，提示玩家
@@ -361,10 +383,7 @@ const MazeRescueMode = ({
         }
         setStats({ ...statsRef.current });
 
-        // 检查是否完成所有转向
-        if (currentTurn.current >= config.turnSequence.length - 1) {
-            endGame(true);
-        } else {
+        if (currentTurn.current < config.turnSequence.length) {
             // 重置移动状态
             gameState.current.closeEyeStart = 0;
             gameState.current.accumulatedCloseTime = 0;
@@ -372,7 +391,7 @@ const MazeRescueMode = ({
 
             currentTurn.current += 1;
             setGamePhase("moving");
-            speak("闭双眼继续前行");
+            speak("闭双眼");
         }
     }, [speak, playSound]);
 
@@ -408,7 +427,8 @@ const MazeRescueMode = ({
                 ...statsRef.current,
                 isSuccess,
                 finalTime:
-                    (config.totalTime - statsRef.current.timeBonus) / 1000,
+                    (statsRef.current.useTime - statsRef.current.timeBonus) /
+                    1000,
                 mode: "maze",
                 timestamp: Date.now(),
             };
@@ -444,7 +464,8 @@ const MazeRescueMode = ({
 
             // 在 blinkWindow 阶段记录眨眼次数
             if (gameState.current.phase === "blinkWindow") {
-                setBlinkInWindow((prev) => prev + 1);
+                bonusBlinksRef.current += 1;
+                setBlinkInWindow(bonusBlinksRef.current);
                 playSound("levelUp");
             }
         },
@@ -555,7 +576,7 @@ const MazeRescueMode = ({
         socket.current.on("right_blink_event", handleRightBlink);
 
         // 初始语音提示
-        speak("欢迎来到迷宫救援游戏，请眨双眼两次开始游戏");
+        speak("眨双眼两次开始游戏。");
 
         return () => {
             socket.current.disconnect();
@@ -577,7 +598,7 @@ const MazeRescueMode = ({
             gameState.current.phase !== "success" &&
             gameState.current.phase !== "fail"
         ) {
-            endGame(false);
+            endGame(arriveRef.current);
         }
     }, [shouldEnd, endGame]);
 
@@ -602,6 +623,8 @@ const MazeRescueMode = ({
                         ? "左"
                         : "右"
                 }眨眼转向`;
+            case "end":
+                return "救援成功！";
             case "success":
                 return "救援成功！";
             case "fail":

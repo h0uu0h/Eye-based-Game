@@ -94,7 +94,7 @@ const BaselineMode = ({
         };
 
         await speakAndWait(
-            "准备开始休息眼睛啦，您可以在接下来的倒计时结束前自由放松您的眼睛。倒计时将从现在开始"
+            "请自由放松眼睛。"
         );
 
         gameTimers.current.countdown = setInterval(() => {
@@ -168,7 +168,7 @@ const BaselineMode = ({
         socket.current.on("left_blink_event", handleLeftBlink);
         socket.current.on("right_blink_event", handleRightBlink);
 
-        speak("欢迎来到基线模式，请眨双眼两次开始休息眼睛");
+        speak("眨双眼两次开始休息。");
 
         return () => {
             socket.current.disconnect();

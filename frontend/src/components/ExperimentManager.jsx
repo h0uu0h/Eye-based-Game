@@ -46,23 +46,23 @@ const ExperimentManager = () => {
     const [showConfigPanel, setShowConfigPanel] = useState(false);
     const [gameConfigs, setGameConfigs] = useState({
         dice: {
-            closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-            bonusWindowDuration: 3000, // 奖励窗口时间 (毫秒)
-            bonusPerBlink: 1, // 每次眨眼增加的点数
-            switchSequence: ["right", "left", "right"], // 切换骰子顺序
+            closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
+            bonusWindowDuration: 2000, // 奖励窗口时间 (毫秒)
+            bonusPerBlink: 0.5, // 每次眨眼增加的点数
+            switchSequence: ["right", "left"], // 切换骰子顺序
             voiceDelay: 1000, // 语音提示延迟 (毫秒)
             promptTimeout: 1000, // 操作提示超时 (毫秒)
-            totalTime: 60000, // 总游戏时间 (毫秒)
+            totalTime: 20000, // 总游戏时间 (毫秒)
             minPoints: 14, // 成功所需的最小点数
         },
         maze: {
-            closeEyeTime: [2, 3, 4, 5], // 随机闭眼时间 (秒)
-            blinkWindowDuration: 3000, // 眨眼奖励窗口时间 (毫秒)
-            timeReward: 1000, // 每次奖励时间 (毫秒)
-            turnSequence: ["right", "left", "right"], // 转向顺序
+            closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
+            blinkWindowDuration: 2000, // 眨眼奖励窗口时间 (毫秒)
+            timeReward: 500, // 每次奖励时间 (毫秒)
+            turnSequence: ["right", "left"], // 转向顺序
             voiceDelay: 1000, // 语音提示延迟 (毫秒)
             promptTimeout: 1000, // 操作提示超时 (毫秒)
-            totalTime: 30000, // 总游戏时间 (毫秒)
+            totalTime: 20000, // 总游戏时间 (毫秒)
         },
         baseline: {
             countdownDuration: 20, // 持续时间（秒）
@@ -389,11 +389,7 @@ const ExperimentManager = () => {
                     {!isTrialMode ? "试玩一下" : "退出试玩"}
                 </button>
             )}
-            {isTrialMode && (
-                <BlinkGame
-                    config={gameConfigs.baseline} // 默认配置
-                />
-            )}
+            {isTrialMode && <BlinkGame />}
             {currentStage === "setup" && !isTrialMode && (
                 <div className={styles.setupContainer}>
                     <DataExporter />
