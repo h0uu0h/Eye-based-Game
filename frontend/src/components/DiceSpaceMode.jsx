@@ -78,7 +78,6 @@ const DiceSpaceMode = ({
         accumulatedCloseTime: 0,
         targetCloseTime: 0,
         lastBlinkTime: 0,
-        isSpeaking: false,
         isRollingPlaying: false,
     });
 
@@ -113,13 +112,11 @@ const DiceSpaceMode = ({
         return new Promise((resolve) => {
             if (!window.speechSynthesis) return resolve();
 
-            gameState.current.isSpeaking = true;
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = "zh-CN";
             utterance.onend = () => {
                 setTimeout(() => {
-                    gameState.current.isSpeaking = false;
                     resolve();
                 }, 200);
             };
@@ -204,7 +201,6 @@ const DiceSpaceMode = ({
             accumulatedCloseTime: 0,
             targetCloseTime: 0,
             lastBlinkTime: 0,
-            isSpeaking: false,
             isRollingPlaying: false,
         };
 
@@ -213,28 +209,44 @@ const DiceSpaceMode = ({
 
         // 游戏开始语音
         await speakAndWait("闭双眼开始摇第一个骰子。");
-        if (gameState.current.eyeState === "closed") {
-            startRolling();
-        }
-        // 开始倒计时
-        gameTimers.current.countdown = setInterval(() => {
-            setRemainingTime((prev) => {
-                const newTime = prev - 1;
-                if (newTime <= 0) {
-                    if (totalPointsRef.current >= config.minPoints) {
-                        endGame(true);
-                    } else {
-                        endGame(false);
+        if (!gameTimers.current.countdown) {
+            // 开始倒计时
+            gameTimers.current.countdown = setInterval(() => {
+                setRemainingTime((prev) => {
+                    const newTime = prev - 1;
+                    if (newTime <= 0) {
+                        if (totalPointsRef.current >= config.minPoints) {
+                            endGame(true);
+                        } else {
+                            endGame(false);
+                        }
+                        return 0;
                     }
-                    return 0;
-                }
-                return newTime;
-            });
-        }, 1000);
+                    return newTime;
+                });
+            }, 1000);
+        }
     }, [speakAndWait, playSound]);
 
     const startRolling = useCallback(() => {
         if (gameState.current.phase !== "rolling") return;
+        if (!gameTimers.current.countdown) {
+            // 开始倒计时
+            gameTimers.current.countdown = setInterval(() => {
+                setRemainingTime((prev) => {
+                    const newTime = prev - 1;
+                    if (newTime <= 0) {
+                        if (totalPointsRef.current >= config.minPoints) {
+                            endGame(true);
+                        } else {
+                            endGame(false);
+                        }
+                        return 0;
+                    }
+                    return newTime;
+                });
+            }, 1000);
+        }
         if (gameState.current.closeEyeStart === 0) {
             gameState.current.closeEyeStart = Date.now();
         }
@@ -574,8 +586,6 @@ const DiceSpaceMode = ({
 
     const handleEyeState = useCallback(
         (data) => {
-            if (gameState.current.isSpeaking) return;
-
             gameState.current.eyeState = data.status;
 
             if (gameState.current.phase === "rolling") {

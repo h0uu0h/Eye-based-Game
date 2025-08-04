@@ -1,0 +1,88 @@
+{
+  "game_id": "a1d6c3c1-e9bb-4b71-a121-5eeac151b2eb",
+  "game_type": "maze",
+  "start_time": "2025-08-04T19:01:02.379924",
+  "end_time": "2025-08-04T19:01:11.162150",
+  "total_blinks": 11,
+  "left_total_blinks": 0,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-04T19:01:02.975235",
+      "min_ear": 0.0994,
+      "avg_ear": 0.225,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:03.545446",
+      "min_ear": 0.11,
+      "avg_ear": 0.2195,
+      "duration": 0.57,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:04.495621",
+      "min_ear": 0.1086,
+      "avg_ear": 0.1666,
+      "duration": 0.95,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:05.395374",
+      "min_ear": 0.086,
+      "avg_ear": 0.1624,
+      "duration": 0.9,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:05.662262",
+      "min_ear": 0.1023,
+      "avg_ear": 0.1555,
+      "duration": 0.267,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:06.076760",
+      "min_ear": 0.0952,
+      "avg_ear": 0.1548,
+      "duration": 0.414,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:07.277737",
+      "min_ear": 0.0932,
+      "avg_ear": 0.1694,
+      "duration": 1.201,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:07.528694",
+      "min_ear": 0.1146,
+      "avg_ear": 0.1627,
+      "duration": 0.251,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:08.883460",
+      "min_ear": 0.0971,
+      "avg_ear": 0.2814,
+      "duration": 1.355,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:09.347757",
+      "min_ear": 0.1038,
+      "avg_ear": 0.2202,
+      "duration": 0.464,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-04T19:01:10.342870",
+      "min_ear": 0.1586,
+      "avg_ear": 0.2365,
+      "duration": 0.995,
+      "type": "partial"
+    }
+  ]
+}

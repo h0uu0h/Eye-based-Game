@@ -76,7 +76,6 @@ const MazeRescueMode = ({
         accumulatedCloseTime: 0,
         targetCloseTime: 0,
         lastBlinkTime: 0,
-        isSpeaking: false,
         isFootstepPlaying: false,
     });
 
@@ -111,13 +110,11 @@ const MazeRescueMode = ({
         return new Promise((resolve) => {
             if (!window.speechSynthesis) return resolve();
 
-            gameState.current.isSpeaking = true;
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = "zh-CN";
             utterance.onend = () => {
                 setTimeout(() => {
-                    gameState.current.isSpeaking = false;
                     resolve();
                 }, 200);
             };
@@ -186,7 +183,6 @@ const MazeRescueMode = ({
             accumulatedCloseTime: 0,
             targetCloseTime: 0,
             lastBlinkTime: 0,
-            isSpeaking: false,
             isFootstepPlaying: false,
         };
 
@@ -195,26 +191,38 @@ const MazeRescueMode = ({
 
         // 游戏开始语音
         await speakAndWait("闭双眼开始第一段前行。");
-
-        gameState.current.gameStart = Date.now();
-        if (gameState.current.eyeState === "closed") {
-            startMoving();
+        if (!gameTimers.current.countdown) {
+            gameState.current.gameStart = Date.now();
+            // 开始倒计时
+            gameTimers.current.countdown = setInterval(() => {
+                setRemainingTime((prev) => {
+                    const newTime = prev - 1;
+                    if (newTime <= 0) {
+                        endGame(arriveRef.current);
+                        return 0;
+                    }
+                    return newTime;
+                });
+            }, 1000);
         }
-        // 开始倒计时
-        gameTimers.current.countdown = setInterval(() => {
-            setRemainingTime((prev) => {
-                const newTime = prev - 1;
-                if (newTime <= 0) {
-                    endGame(arriveRef.current);
-                    return 0;
-                }
-                return newTime;
-            });
-        }, 1000);
     }, [speakAndWait, playSound]);
 
     const startMoving = useCallback(() => {
         if (gameState.current.phase !== "moving") return;
+        if (!gameTimers.current.countdown) {
+            gameState.current.gameStart = Date.now();
+            // 开始倒计时
+            gameTimers.current.countdown = setInterval(() => {
+                setRemainingTime((prev) => {
+                    const newTime = prev - 1;
+                    if (newTime <= 0) {
+                        endGame(arriveRef.current);
+                        return 0;
+                    }
+                    return newTime;
+                });
+            }, 1000);
+        }
 
         // 记录闭眼开始时间
         if (gameState.current.closeEyeStart === 0) {
@@ -325,7 +333,6 @@ const MazeRescueMode = ({
             if (isLastTurn) {
                 statsRef.current.useTime =
                     Date.now() - gameState.current.gameStart;
-                console.log("sss", statsRef.current.useTime);
                 arriveRef.current = true;
             }
             endBlinkWindow();
@@ -543,8 +550,6 @@ const MazeRescueMode = ({
 
     const handleEyeState = useCallback(
         (data) => {
-            if (gameState.current.isSpeaking) return;
-
             gameState.current.eyeState = data.status;
 
             if (gameState.current.phase === "moving") {
