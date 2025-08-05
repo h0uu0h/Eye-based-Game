@@ -28,7 +28,7 @@ const BlinkGame = ({
     const [calibrated, setCalibrated] = useState(false);
     const [currentGameMode, setCurrentGameMode] = useState(mode);
     const socket = useRef(null);
-
+    const [restartCount, setRestartCount] = useState(0);
     // 传入游戏ID
     const gameIdRef = useRef(gameId);
 
@@ -57,6 +57,38 @@ const BlinkGame = ({
         totalTime: 60000, // 总游戏时间 (毫秒)
         minPoints: 14, // 成功所需的最小点数
     };
+
+    const generateNewGameId = () => {
+        if (restartCount === 0) {
+            return gameIdRef.current;
+        }
+        return `${gameIdRef.current}_r${restartCount}`;
+    };
+    const handleRestart = () => {
+        // 标记为重新开始（不显示结算界面）
+        const isRestarting = true;
+        console.log("restart");
+
+        // 调用游戏结束处理函数保存当前游戏数据
+        if (resultRef.current) {
+            handleGameEnd(resultRef.current, isRestarting);
+        } else {
+            console.log("没有当前游戏数据可保存");
+        }
+
+        // 重置游戏状态
+        setGameStarted(false);
+        setGameEnded(false);
+        setSummary(null);
+
+        // 增加重启计数
+        setRestartCount((prev) => prev + 1);
+
+        // 延迟重新开始游戏以避免状态冲突
+        setTimeout(() => {
+            setGameStarted(true);
+        }, 100);
+    };
     const handleToggleGame = () => {
         if (!gameStarted) {
             // 开始游戏
@@ -78,7 +110,7 @@ const BlinkGame = ({
     }, [gameEnded, gameStarted]);
 
     // 当游戏模式组件返回结果时处理
-    const handleGameEnd = (result) => {
+    const handleGameEnd = (result, isRestarting = false) => {
         resultRef.current = result;
 
         // 确保 socket 可用
@@ -107,6 +139,7 @@ const BlinkGame = ({
                 const fullRecord = {
                     ...filteredFrontendResult,
                     ...response.game_data,
+                    restarted: isRestarting,
                 };
 
                 console.log("完整游戏记录:", fullRecord);
@@ -137,13 +170,15 @@ const BlinkGame = ({
                         JSON.stringify(experimentBlinkHistory)
                     );
                 }
-                // 更新摘要显示完整数据
-                // setSummary(resultRef.current);
+                if (!isRestarting) {
+                    setSummary(result);
+                }
             }
-
-            // 关闭游戏
-            setGameStarted(false);
-            setGameEnded(false);
+            if (!isRestarting) {
+                // 关闭游戏
+                setGameStarted(false);
+                setGameEnded(false);
+            }
         });
     };
     /***************************** */
@@ -159,7 +194,7 @@ const BlinkGame = ({
     // 游戏开始的逻辑
     useEffect(() => {
         if (!gameStarted) return;
-
+        gameIdRef.current = generateNewGameId();
         // 摄像头 + socket 初始化
         const setupCameraAndSocket = async () => {
             try {
@@ -320,6 +355,7 @@ const BlinkGame = ({
             }
         };
     }, [gameStarted]);
+
     const handleExportHistory = () => {
         const history = JSON.parse(
             localStorage.getItem("blinkGameHistory") || "[]"
@@ -506,6 +542,11 @@ const BlinkGame = ({
                         padding: 0,
                         // backgroundColor:"pink",
                     }}>
+                    <button
+                        onClick={handleRestart}
+                        className={styles.restartBtn}>
+                        Restart
+                    </button>
                     <canvas
                         ref={canvasRef}
                         width={640}
