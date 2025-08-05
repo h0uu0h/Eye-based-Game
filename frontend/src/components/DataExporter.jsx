@@ -28,6 +28,11 @@ const DataExporter = () => {
 
         // 处理每个实验的数据
         const processedExperiments = experiments.map((experiment) => {
+            // 确保 sessions 存在
+            if (!experiment.sessions) {
+                experiment.sessions = [];
+            }
+
             // 获取该实验的眨眼历史数据
             const blinkHistoryKey = `blinkHistory_${experiment.experimentId}`;
             const blinkHistory = JSON.parse(

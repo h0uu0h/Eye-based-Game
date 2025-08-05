@@ -360,7 +360,7 @@ const BlinkGame = ({
                         config={maze60Config}
                     />
                 );
-            case "dice_60":
+            case "dice60":
                 return (
                     <DiceSpaceMode
                         onGameEnd={handleGameEnd}
@@ -511,6 +511,7 @@ const BlinkGame = ({
                         width={640}
                         height={480}
                         style={{
+                            opacity: "0.3",
                             position: "absolute",
                             top: "50%",
                             left: "50%",

@@ -6,9 +6,12 @@ import BlinkGame from "./BlinkGame";
 import styles from "./ExperimentManager.module.css";
 import deleteIcon from "/icon/delete.svg";
 import DataExporter from "./DataExporter";
+import baselineQZ from "/quiz/baseline.png";
+import mazeQZ from "/quiz/maze.png";
+import diceQZ from "/quiz/dice.png";
 
 const ExperimentManager = () => {
-    const [currentStage, setCurrentStage] = useState("setup");
+    const [currentStage, setCurrentStage] = useState("setup"); // setup running completed
     const [subjectId, setSubjectId] = useState("");
     const subjectIdRef = useRef(""); // 同步存储 subjectId
     const [isTrialMode, setIsTrialMode] = useState(false);
@@ -53,7 +56,7 @@ const ExperimentManager = () => {
             voiceDelay: 1000, // 语音提示延迟 (毫秒)
             promptTimeout: 1000, // 操作提示超时 (毫秒)
             totalTime: 20000, // 总游戏时间 (毫秒)
-            minPoints: 14, // 成功所需的最小点数
+            minPoints: 11, // 成功所需的最小点数
         },
         maze: {
             closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
@@ -92,16 +95,30 @@ const ExperimentManager = () => {
         return () => window.removeEventListener("keydown", handleKeyDown);
     }, []);
     const handleConfigChange = (type, id, key, value) => {
-        const updateConfig = (prevConfigs) => ({
-            ...prevConfigs,
-            [id]: {
-                ...prevConfigs[id],
-                [key]:
-                    typeof prevConfigs[id][key] === "number"
-                        ? Number(value)
-                        : value,
-            },
-        });
+        const updateConfig = (prevConfigs) => {
+            const oldVal = prevConfigs[id][key];
+
+            let parsedValue;
+
+            if (Array.isArray(oldVal)) {
+                parsedValue =
+                    typeof oldVal[0] === "number"
+                        ? value.split(",").map((v) => Number(v.trim()))
+                        : value.split(",").map((v) => v.trim());
+            } else if (typeof oldVal === "number") {
+                parsedValue = Number(value);
+            } else {
+                parsedValue = value;
+            }
+
+            return {
+                ...prevConfigs,
+                [id]: {
+                    ...prevConfigs[id],
+                    [key]: parsedValue,
+                },
+            };
+        };
 
         if (type === "game") {
             setGameConfigs(updateConfig);
@@ -109,6 +126,7 @@ const ExperimentManager = () => {
             setTaskConfigs(updateConfig);
         }
     };
+
     // ================ 实验方法 ================
     const startExperiment = () => {
         if (!subjectIdRef.current) {
@@ -368,11 +386,7 @@ const ExperimentManager = () => {
                                                 "game",
                                                 gameId,
                                                 key,
-                                                Array.isArray(value)
-                                                    ? e.target.value
-                                                          .split(",")
-                                                          .map(Number)
-                                                    : e.target.value
+                                                e.target.value
                                             )
                                         }
                                     />
@@ -566,6 +580,32 @@ const ExperimentManager = () => {
                         style={{ marginLeft: "10px" }}>
                         新的实验
                     </button>
+                    <div className={styles.qzContainer}>
+                        <div className={styles.qzItem}>
+                            <img
+                                className={styles.qzImg}
+                                src={baselineQZ}
+                                alt="基线问卷"
+                            />
+                            <p>基线问卷</p>
+                        </div>
+                        <div className={styles.qzItem}>
+                            <img
+                                className={styles.qzImg}
+                                src={mazeQZ}
+                                alt="迷宫问卷"
+                            />
+                            <p>迷宫问卷</p>
+                        </div>
+                        <div className={styles.qzItem}>
+                            <img
+                                className={styles.qzImg}
+                                src={diceQZ}
+                                alt="骰子问卷"
+                            />
+                            <p>骰子问卷</p>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

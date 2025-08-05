@@ -33,7 +33,7 @@ const MazeRescueMode = ({
     const config = { ...defaultConfig, ...incomingConfig };
 
     // ================ 游戏状态 ================
-    const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkPrompt, blinkWindow, turning, success, fail
+    const [gamePhase, setGamePhase] = useState("intro"); // intro, moving, wallHit, blinkPrompt, blinkWindow, turning, end, success, fail
     const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
     const [blinkCount, setBlinkCount] = useState(0);
     const [blinkInWindow, setBlinkInWindow] = useState(0);
@@ -326,15 +326,13 @@ const MazeRescueMode = ({
         bonusBlinksRef.current = 0;
         playSound("timer");
 
+        const isLastTurn = currentTurn.current === config.turnSequence.length;
+        if (isLastTurn) {
+            statsRef.current.useTime = Date.now() - gameState.current.gameStart;
+            arriveRef.current = true;
+        }
         // 3秒后结束奖励窗口
         gameTimers.current.blinkWindow = setTimeout(() => {
-            const isLastTurn =
-                currentTurn.current === config.turnSequence.length;
-            if (isLastTurn) {
-                statsRef.current.useTime =
-                    Date.now() - gameState.current.gameStart;
-                arriveRef.current = true;
-            }
             endBlinkWindow();
         }, config.blinkWindowDuration);
     }, [playSound]);
@@ -438,6 +436,8 @@ const MazeRescueMode = ({
                     1000,
                 mode: "maze",
                 timestamp: Date.now(),
+                endingPhase: gameState.current.phase, // 游戏结束时的阶段
+                currentDiceIndex: currentTurn.current, // 当前的转角索引
             };
 
             setGamePhase(isSuccess ? "success" : "fail");

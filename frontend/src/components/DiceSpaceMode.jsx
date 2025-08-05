@@ -29,11 +29,11 @@ const DiceSpaceMode = ({
         voiceDelay: 1000, // 语音提示延迟 (毫秒)
         promptTimeout: 1000, // 操作提示超时 (毫秒)
         totalTime: 20000, // 总游戏时间 (毫秒)
-        minPoints: 14, // 成功所需的最小点数
+        minPoints: 11, // 成功所需的最小点数
     };
     const config = { ...defaultConfig, ...incomingConfig };
     // ================ 游戏状态 ================
-    const [gamePhase, setGamePhase] = useState("intro"); // intro, rolling, readyRoll, throwPrompt, bonusWindow, switching, success, fail
+    const [gamePhase, setGamePhase] = useState("intro"); // intro, rolling, readyRoll, throwPrompt, bonusWindow, switching, end, success, fail
     const [remainingTime, setRemainingTime] = useState(config.totalTime / 1000);
     const [blinkCount, setBlinkCount] = useState(0);
     const [bonusBlinks, setBonusBlinks] = useState(0); // 用于UI渲染的奖励眨眼次数
@@ -475,6 +475,8 @@ const DiceSpaceMode = ({
                 dicePoints: dicePointsRef.current,
                 mode: "dice",
                 timestamp: Date.now(),
+                endingPhase: gameState.current.phase,
+                currentDiceIndex: currentDice.current,
             };
 
             setGamePhase(isSuccess ? "success" : "fail");
