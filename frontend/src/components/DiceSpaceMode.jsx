@@ -56,7 +56,7 @@ const DiceSpaceMode = ({
     const totalPointsRef = useRef(0);
     const currentDice = useRef(0);
     const statsRef = useRef({
-        minPoints: 14,
+        minPoints: config.minPoints,
         totalBlinks: 0,
         leftBlinks: 0,
         rightBlinks: 0,
@@ -183,7 +183,7 @@ const DiceSpaceMode = ({
         setTotalPoints(0);
 
         statsRef.current = {
-            minPoints: 14,
+            minPoints: config.minPoints,
             totalBlinks: 0,
             leftBlinks: 0,
             rightBlinks: 0,
@@ -418,17 +418,7 @@ const DiceSpaceMode = ({
     }, [speak, stopSound]);
 
     const handleCorrectSwitch = useCallback(() => {
-        const direction = config.switchSequence[currentDice.current];
         playSound("switch");
-
-        // 更新统计
-        statsRef.current.totalBlinks += 1;
-        if (direction === "left") {
-            statsRef.current.leftBlinks += 1;
-        } else {
-            statsRef.current.rightBlinks += 1;
-        }
-        setStats({ ...statsRef.current });
 
         // 检查是否完成所有骰子
         if (currentDice.current < config.switchSequence.length) {
@@ -446,7 +436,6 @@ const DiceSpaceMode = ({
 
     const handleWrongSwitch = useCallback(() => {
         playSound("wrong");
-        statsRef.current.totalBlinks += 1;
         statsRef.current.wrongSwitches += 1;
         setStats({ ...statsRef.current });
 
@@ -529,10 +518,10 @@ const DiceSpaceMode = ({
                 return;
             }
 
-            statsRef.current.totalBlinks += 1;
+            statsRef.current.leftBlinks += 1;
             setStats((prev) => ({
                 ...prev,
-                totalBlinks: statsRef.current.totalBlinks,
+                leftBlinks: statsRef.current.leftBlinks,
             }));
 
             if (gameState.current.phase === "switching") {
@@ -563,10 +552,10 @@ const DiceSpaceMode = ({
                 return;
             }
 
-            statsRef.current.totalBlinks += 1;
+            statsRef.current.rightBlinks += 1;
             setStats((prev) => ({
                 ...prev,
-                totalBlinks: statsRef.current.totalBlinks,
+                rightBlinks: statsRef.current.rightBlinks,
             }));
 
             if (gameState.current.phase === "switching") {
@@ -742,7 +731,7 @@ const DiceSpaceMode = ({
                     {/* 游戏标题 */}
                     <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
                     <p style={{ color: "rgb(255,255,255,0.7)" }}>
-                        掷出骰子，点数之和大于14即可离开
+                        {`掷出骰子，点数之和大于${config.minPoints}即可离开`}
                     </p>
                     <p>
                         闭双眼：摇动骰子

@@ -376,18 +376,7 @@ const MazeRescueMode = ({
     }, [speak, stopSound, currentTurn, blinkInWindow]);
 
     const handleCorrectTurn = useCallback(() => {
-        const direction = config.turnSequence[currentTurn.current];
         playSound("turn");
-
-        // 更新统计
-        statsRef.current.totalBlinks += 1;
-        if (direction === "left") {
-            statsRef.current.leftBlinks += 1;
-        } else {
-            statsRef.current.rightBlinks += 1;
-        }
-        setStats({ ...statsRef.current });
-
         if (currentTurn.current < config.turnSequence.length) {
             // 重置移动状态
             gameState.current.closeEyeStart = 0;
@@ -402,7 +391,6 @@ const MazeRescueMode = ({
 
     const handleWrongTurn = useCallback(() => {
         playSound("wrong");
-        statsRef.current.totalBlinks += 1;
         statsRef.current.wrongTurns += 1;
         setStats({ ...statsRef.current });
 
@@ -491,10 +479,10 @@ const MazeRescueMode = ({
                 return;
             }
 
-            statsRef.current.totalBlinks += 1;
+            statsRef.current.leftBlinks += 1;
             setStats((prev) => ({
                 ...prev,
-                totalBlinks: statsRef.current.totalBlinks,
+                leftBlinks: statsRef.current.leftBlinks,
             }));
 
             if (gameState.current.phase === "turning") {
@@ -525,10 +513,10 @@ const MazeRescueMode = ({
                 return;
             }
 
-            statsRef.current.totalBlinks += 1;
+            statsRef.current.rightBlinks += 1;
             setStats((prev) => ({
                 ...prev,
-                totalBlinks: statsRef.current.totalBlinks,
+                rightBlinks: statsRef.current.rightBlinks,
             }));
 
             if (gameState.current.phase === "turning") {
