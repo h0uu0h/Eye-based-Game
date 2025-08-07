@@ -6,7 +6,7 @@ import BlinkGame from "./BlinkGame";
 import styles from "./ExperimentManager.module.css";
 import deleteIcon from "/icon/delete.svg";
 import DataExporter from "./DataExporter";
-import baselineQZ from "/quiz/baseline.png";
+import quizImg from "/quiz/quiz.png";
 import mazeQZ from "/quiz/maze.png";
 import diceQZ from "/quiz/dice.png";
 
@@ -584,12 +584,12 @@ const ExperimentManager = () => {
                         <div className={styles.qzItem}>
                             <img
                                 className={styles.qzImg}
-                                src={baselineQZ}
-                                alt="基线问卷"
+                                src={quizImg}
+                                alt="问卷"
                             />
-                            <p>基线问卷</p>
+                            <p>问卷</p>
                         </div>
-                        <div className={styles.qzItem}>
+                        {/* <div className={styles.qzItem}>
                             <img
                                 className={styles.qzImg}
                                 src={mazeQZ}
@@ -604,7 +604,7 @@ const ExperimentManager = () => {
                                 alt="骰子问卷"
                             />
                             <p>骰子问卷</p>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
             )}
