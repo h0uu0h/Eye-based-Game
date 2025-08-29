@@ -592,7 +592,7 @@ const BlinkGame = ({
                                 fontWeight: "bold",
                                 zIndex: 20,
                             }}>
-                            请睁眼、闭眼几次进行校准...
+                            Please open and close your eyes several times for calibration ..
                         </div>
                     )}
                     {renderModeComponent()}

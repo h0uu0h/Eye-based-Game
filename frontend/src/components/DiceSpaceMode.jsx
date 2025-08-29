@@ -412,7 +412,9 @@ const DiceSpaceMode = ({
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "switching") {
                 const direction = config.switchSequence[currentDice.current];
-                speak(`Blink ${direction === "left" ? "left" : "right"} to switch`);
+                speak(
+                    `Blink ${direction === "left" ? "left" : "right"} to switch`
+                );
             }
         }, config.promptTimeout);
     }, [speak, stopSound]);
@@ -808,14 +810,14 @@ const DiceSpaceMode = ({
                                 gamePhase === "success" ? "#4caf50" : "#f44336",
                         }}>
                         {gamePhase === "success"
-                            ? "恭喜成功离开骰子空间!"
-                            : "很遗憾，未能离开骰子空间"}
+                            ? "Congratulations! You have successfully escaped the Dice Space!"
+                            : "Unfortunately, you failed to escape the Dice Space."}
                     </h2>
                     <p>
-                        骰子点数: {dicePoints.join(" + ")} = {totalPoints}
+                        Dice Points: {dicePoints.join(" + ")} = {totalPoints}
                     </p>
-                    <p>目标点数: {config.minPoints}</p>
-                    <p>正在生成结算信息...</p>
+                    <p>Target Points: {config.minPoints}</p>
+                    <p>Generating summary...</p>
                 </div>
             )}
 

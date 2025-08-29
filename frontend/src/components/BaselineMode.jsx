@@ -93,9 +93,7 @@ const BaselineMode = ({
             isSpeaking: false,
         };
 
-        await speakAndWait(
-            "Please relax your eyes freely."
-        );
+        await speakAndWait("Please relax your eyes freely.");
 
         gameTimers.current.countdown = setInterval(() => {
             setRemainingTime((prev) => {
@@ -209,7 +207,8 @@ const BaselineMode = ({
                     <p style={{ lineHeight: "1.6", marginBottom: "1rem" }}>
                         During the following period, freely relax your eyes;
                         <br />
-                        you may shift your gaze away from the screen to recharge for ocular health.
+                        you may shift your gaze away from the screen to recharge
+                        for ocular health.
                     </p>
                     <p
                         style={{
@@ -243,7 +242,8 @@ const BaselineMode = ({
                     <p>
                         During the following period, freely relax your eyes;
                         <br />
-                        you may shift your gaze away from the screen to recharge for ocular health.
+                        you may shift your gaze away from the screen to recharge
+                        for ocular health.
                     </p>
                 </div>
             )}
@@ -255,9 +255,11 @@ const BaselineMode = ({
                         borderRadius: "15px",
                         maxWidth: "80%",
                     }}>
-                    <h2 style={{ color: "#4caf50" }}>基线模式完成！</h2>
-                    <p>放松时间结束</p>
-                    <p>正在生成结算信息...</p>
+                    <h2 style={{ color: "#4caf50" }}>
+                        Baseline Mode Complete!
+                    </h2>
+                    <p>Relaxation time is over</p>
+                    <p>Generating summary...</p>
                 </div>
             )}
         </div>
