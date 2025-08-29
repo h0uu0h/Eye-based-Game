@@ -1,0 +1,53 @@
+{
+  "game_id": "dd59f10f-45c6-4d6e-a932-8e69f961204d",
+  "game_type": "baseline",
+  "start_time": "2025-08-08T23:06:16.280500",
+  "end_time": "2025-08-08T23:06:23.093467",
+  "total_blinks": 6,
+  "left_total_blinks": 5,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-08T23:06:16.970221",
+      "min_ear": 0.0854,
+      "avg_ear": 0.1795,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:06:17.569802",
+      "min_ear": 0.0925,
+      "avg_ear": 0.2465,
+      "duration": 0.6,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:06:20.562195",
+      "min_ear": 0.0893,
+      "avg_ear": 0.1828,
+      "duration": 2.992,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:06:21.225674",
+      "min_ear": 0.0989,
+      "avg_ear": 0.2622,
+      "duration": 0.663,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:06:21.821310",
+      "min_ear": 0.0792,
+      "avg_ear": 0.1927,
+      "duration": 0.596,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:06:22.713087",
+      "min_ear": 0.0879,
+      "avg_ear": 0.2572,
+      "duration": 0.892,
+      "type": "full"
+    }
+  ]
+}

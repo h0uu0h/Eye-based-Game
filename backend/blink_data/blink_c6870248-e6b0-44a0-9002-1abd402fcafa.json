@@ -1,0 +1,88 @@
+{
+  "game_id": "c6870248-e6b0-44a0-9002-1abd402fcafa",
+  "game_type": "maze",
+  "start_time": "2025-08-09T12:48:11.676857",
+  "end_time": "2025-08-09T12:48:41.958068",
+  "total_blinks": 11,
+  "left_total_blinks": 14,
+  "right_total_blinks": 4,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-09T12:48:18.642039",
+      "min_ear": 0.0879,
+      "avg_ear": 0.2326,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:21.840911",
+      "min_ear": 0.1165,
+      "avg_ear": 0.1464,
+      "duration": 3.199,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:22.271232",
+      "min_ear": 0.1413,
+      "avg_ear": 0.1674,
+      "duration": 0.43,
+      "type": "partial"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:22.809460",
+      "min_ear": 0.1142,
+      "avg_ear": 0.1847,
+      "duration": 0.538,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:23.425111",
+      "min_ear": 0.1074,
+      "avg_ear": 0.1837,
+      "duration": 0.616,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:27.127375",
+      "min_ear": 0.0637,
+      "avg_ear": 0.2214,
+      "duration": 3.702,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:33.334910",
+      "min_ear": 0.1164,
+      "avg_ear": 0.1544,
+      "duration": 6.208,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:34.513014",
+      "min_ear": 0.1293,
+      "avg_ear": 0.1626,
+      "duration": 1.178,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:34.983572",
+      "min_ear": 0.1272,
+      "avg_ear": 0.159,
+      "duration": 0.471,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:35.172781",
+      "min_ear": 0.1279,
+      "avg_ear": 0.1572,
+      "duration": 0.189,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-09T12:48:36.954735",
+      "min_ear": 0.1176,
+      "avg_ear": 0.291,
+      "duration": 1.782,
+      "type": "full"
+    }
+  ]
+}

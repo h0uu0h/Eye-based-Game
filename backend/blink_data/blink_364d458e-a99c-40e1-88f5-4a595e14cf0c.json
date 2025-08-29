@@ -1,0 +1,32 @@
+{
+  "game_id": "364d458e-a99c-40e1-88f5-4a595e14cf0c",
+  "game_type": "dice",
+  "start_time": "2025-08-08T23:07:27.438839",
+  "end_time": "2025-08-08T23:07:30.245470",
+  "total_blinks": 3,
+  "left_total_blinks": 0,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-08T23:07:27.479089",
+      "min_ear": 0.1008,
+      "avg_ear": 0.3654,
+      "duration": 0,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:07:27.855107",
+      "min_ear": 0.1101,
+      "avg_ear": 0.3224,
+      "duration": 0.376,
+      "type": "full"
+    },
+    {
+      "timestamp": "2025-08-08T23:07:28.428534",
+      "min_ear": 0.0826,
+      "avg_ear": 0.3073,
+      "duration": 0.573,
+      "type": "full"
+    }
+  ]
+}

@@ -458,7 +458,7 @@ const ExperimentManager = () => {
                                         setSubjectId(e.target.value);
                                         subjectIdRef.current = e.target.value; // 同步更新 ref
                                     }}
-                                    placeholder="实验者ID"
+                                    placeholder="ID"
                                 />
                             </div>
 
