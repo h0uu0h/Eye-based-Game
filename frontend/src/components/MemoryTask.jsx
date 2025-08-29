@@ -166,6 +166,7 @@ const MemoryTask = ({ onComplete, gameId, config }) => {
             {detectionActive && (
                 <BlinkDetector onData={handleBlinkData} shouldEnd={shouldEnd} />
             )}
+            <h2 style={{ margin: 0 }}>Picture Memory</h2>
             <div
                 className={`${styles.imageGrid} ${
                     phase === 1 ? styles.phase1Grid : styles.phase2Grid
@@ -189,12 +190,14 @@ const MemoryTask = ({ onComplete, gameId, config }) => {
             </div>
             <div className={styles.instructions}>
                 {phase === 1 ? (
-                    <p>请仔细观看以下图片，您有60秒时间</p>
+                    <p>Please observe and memorize the following pictures</p>
                 ) : (
-                    <p>请选择您在第一阶段见过的图片（点击选择）</p>
+                    <p>
+                        Please click to select the picture you have just seen.
+                    </p>
                 )}
             </div>
-            <div className={styles.timer}>{timeLeft}秒</div>
+            <div className={styles.timer}>{timeLeft}s</div>
 
             {/* {phase === 2 && (
                 <button
@@ -204,7 +207,7 @@ const MemoryTask = ({ onComplete, gameId, config }) => {
                 </button>
             )} */}
 
-            <div className={styles.gameId}>任务ID: {taskIdRef.current}</div>
+            <div className={styles.gameId}>Task ID: {taskIdRef.current}</div>
         </div>
     );
 };

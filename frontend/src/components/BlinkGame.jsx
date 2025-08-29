@@ -449,7 +449,7 @@ const BlinkGame = ({
                 backgroundColor: gameStarted ? "rgb(0,0,0)" : "rgba(0,0,0,0.5)",
             }}>
             {!gameStarted && !isExperimentMode && (
-                <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>
+                <h1>&nbsp;&nbsp;Rest your eyes!</h1>
             )}
             {!isExperimentMode && (
                 <>
@@ -471,11 +471,11 @@ const BlinkGame = ({
                             value={mode}
                             className={styles.selectBox}
                             onChange={(e) => setMode(e.target.value)}>
-                            <option value="baseline">基线模式</option>
-                            <option value="maze">迷宫20</option>
-                            <option value="dice">骰子20</option>
-                            <option value="maze60">迷宫60</option>
-                            <option value="dice60">骰子60</option>
+                            <option value="baseline">Baseline</option>
+                            <option value="maze">Maze20</option>
+                            <option value="dice">Dice20</option>
+                            <option value="maze60">Maze60</option>
+                            <option value="dice60">Dice60</option>
                         </select>
                     </div>
                     <button

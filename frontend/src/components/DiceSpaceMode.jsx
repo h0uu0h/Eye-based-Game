@@ -104,7 +104,7 @@ const DiceSpaceMode = ({
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "zh-CN";
+        utterance.lang = "en-US";
         window.speechSynthesis.speak(utterance);
     }, []);
 
@@ -114,7 +114,7 @@ const DiceSpaceMode = ({
 
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "zh-CN";
+            utterance.lang = "en-US";
             utterance.onend = () => {
                 setTimeout(() => {
                     resolve();
@@ -208,7 +208,7 @@ const DiceSpaceMode = ({
         playSound("bg", { loop: true, volume: 0.3 });
 
         // 游戏开始语音
-        await speakAndWait("闭双眼开始摇第一个骰子。");
+        await speakAndWait("Close both eyes to start rolling the first dice.");
         if (!gameTimers.current.countdown) {
             // 开始倒计时
             gameTimers.current.countdown = setInterval(() => {
@@ -342,7 +342,7 @@ const DiceSpaceMode = ({
         // 提示玩家眨眼进入奖励窗口
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "readyRoll") {
-                speak("多次眨眼");
+                speak("Blink multiple times.");
                 setGamePhase("throwPrompt");
 
                 gameTimers.current.prompt = setTimeout(() => {
@@ -405,14 +405,14 @@ const DiceSpaceMode = ({
         }
         // 提示切换方向
         const direction = config.switchSequence[currentDice.current];
-        speak(`${direction === "left" ? "左" : "右"}眨`);
+        speak(`Blink ${direction === "left" ? "left" : "right"}.`);
         setGamePhase("switching");
 
         // 如果1秒内没有正确眨眼，提示玩家
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "switching") {
                 const direction = config.switchSequence[currentDice.current];
-                speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
+                speak(`Blink ${direction === "left" ? "left" : "right"} to switch`);
             }
         }, config.promptTimeout);
     }, [speak, stopSound]);
@@ -430,7 +430,7 @@ const DiceSpaceMode = ({
             const nextDice = currentDice.current + 1;
             currentDice.current = nextDice;
             setGamePhase("rolling");
-            speak(`闭双眼`);
+            speak("Close both eyes");
         }
     }, [speak, playSound, currentDice]);
 
@@ -440,7 +440,7 @@ const DiceSpaceMode = ({
         setStats({ ...statsRef.current });
 
         const direction = config.switchSequence[currentDice.current];
-        speak(`${direction === "left" ? "左" : "右"}眨眼切换`);
+        speak(`Blink ${direction === "left" ? "left" : "right"} to switch`);
     }, [speak, playSound]);
 
     const endGame = useCallback(
@@ -609,7 +609,7 @@ const DiceSpaceMode = ({
         socket.current.on("right_blink_event", handleRightBlink);
 
         // 只在首次挂载时播放初始语音
-        speak("眨双眼两次开始游戏。");
+        speak("Blink your eyes twice to start the game.");
 
         return () => {
             socket.current.disconnect();
@@ -643,27 +643,27 @@ const DiceSpaceMode = ({
     const renderGameStateText = () => {
         switch (gamePhase) {
             case "intro":
-                return "请眨双眼两次开始游戏";
+                return "Blink both eyes twice to start the game";
             case "rolling":
-                return "摇骰子中...睁双眼停止";
+                return "Rolling dice... open both eyes to stop";
             case "readyRoll":
-                return "摇骰完成，请眨眼两次掷出骰子";
+                return "Rolling finished, blink twice to throw the dice";
             case "throwPrompt":
-                return "请眨双眼两次掷出骰子";
+                return "Blink both eyes twice to throw the dice";
             case "bonusWindow":
-                return `快速眨眼增加点数！(${bonusBlinks}次眨眼)`;
+                return `Blink quickly to increase points! (${bonusBlinks} blinks)`;
             case "switching":
-                return `请${
+                return `Please ${
                     config.switchSequence[currentDice.current] === "left"
-                        ? "左"
-                        : "右"
-                }眨眼切换到下一个骰子`;
+                        ? "left"
+                        : "right"
+                } eye blink to switch to the next die`;
             case "end":
-                return "投掷完毕";
+                return "All dice have been thrown";
             case "success":
-                return "恭喜成功离开骰子空间！";
+                return "Congratulations! You successfully escaped the dice space!";
             case "fail":
-                return "很遗憾，未能离开骰子空间";
+                return "Unfortunately, you failed to escape the dice space";
             default:
                 return "";
         }
@@ -729,18 +729,22 @@ const DiceSpaceMode = ({
             {gamePhase === "intro" && (
                 <div>
                     {/* 游戏标题 */}
-                    <h1 style={{ marginBottom: "-0.5rem" }}>骰子空间</h1>
+                    <h1 style={{ marginBottom: "-0.5rem" }}>Dice</h1>
                     <p style={{ color: "rgb(255,255,255,0.7)" }}>
-                        {`掷出骰子，点数之和大于${config.minPoints}即可离开`}
+                        Roll the dice according to the voice instructions and
+                        try to get the highest score possible!
+                        <br />
+                        After the dice is rolled, blink as many times as you can
+                        to increase your score!
                     </p>
                     <p>
-                        闭双眼：摇动骰子
+                        Close both eyes: Roll the dice
                         <br />
-                        睁双眼：停止摇动
+                        Open both eyes: Stop rolling the dice
                         <br />
-                        左眨眼：左掷骰子
+                        Blink multiple times after rolling: Gain scores
                         <br />
-                        右眨眼：右掷骰子
+                        Blink left / blink right: Move to the next dice
                     </p>
                     <p
                         style={{
@@ -748,7 +752,7 @@ const DiceSpaceMode = ({
                             fontSize: "1rem",
                             color: "pink",
                         }}>
-                        开始游戏（眨双眼两次）
+                        Start the game by blinking twice
                         <span style={{ color: "pink" }}>{blinkCount}/2</span>
                     </p>
                 </div>
@@ -760,19 +764,19 @@ const DiceSpaceMode = ({
                     <>
                         <h1>{remainingTime}秒</h1>
                         <h2>
-                            总点数: {totalPoints} / {config.minPoints}
+                            Total points: {totalPoints} / {config.minPoints}
                         </h2>
 
                         {renderDicePoints()}
 
                         <p>
-                            闭双眼：摇动骰子
+                            Close both eyes: Roll the dice
                             <br />
-                            睁双眼：停止摇动
+                            Open both eyes: Stop rolling the dice
                             <br />
-                            左眨眼：左掷骰子
+                            Blink multiple times after rolling: Gain scores
                             <br />
-                            右眨眼：右掷骰子
+                            Blink left / blink right: Move to the next dice
                         </p>
                         <p
                             style={{

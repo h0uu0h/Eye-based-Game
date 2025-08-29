@@ -141,8 +141,8 @@ const DifferenceTask = ({ onComplete, gameId, config }) => {
             {detectionActive && (
                 <BlinkDetector onData={handleBlinkData} shouldEnd={shouldEnd} />
             )}
-            <h2>找不同任务</h2>
-            <div className={styles.timer}>{timeLeft}秒</div>
+            <h2>Spot the Difference</h2>
+            <div className={styles.timer}>{timeLeft}s</div>
 
             {currentPair && (
                 <div className={styles.imagePairContainer}>
@@ -188,7 +188,7 @@ const DifferenceTask = ({ onComplete, gameId, config }) => {
                 </div>
             )}
 
-            <div className={styles.gameId}>任务ID: {taskIdRef.current}</div>
+            <div className={styles.gameId}>Task ID: {taskIdRef.current}</div>
         </div>
     );
 };

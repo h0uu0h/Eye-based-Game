@@ -47,7 +47,7 @@ const BaselineMode = ({
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "zh-CN";
+        utterance.lang = "en-US";
         window.speechSynthesis.speak(utterance);
     }, []);
 
@@ -58,7 +58,7 @@ const BaselineMode = ({
             gameState.current.isSpeaking = true;
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "zh-CN";
+            utterance.lang = "en-US";
             utterance.onend = () => {
                 setTimeout(() => {
                     gameState.current.isSpeaking = false;
@@ -94,7 +94,7 @@ const BaselineMode = ({
         };
 
         await speakAndWait(
-            "请自由放松眼睛。"
+            "Please relax your eyes freely."
         );
 
         gameTimers.current.countdown = setInterval(() => {
@@ -114,7 +114,7 @@ const BaselineMode = ({
             if (timer) clearTimeout(timer);
         });
 
-        speak("放松时间结束");
+        speak("Relaxation time is over");
 
         const finalStats = {
             ...statsRef.current,
@@ -168,7 +168,7 @@ const BaselineMode = ({
         socket.current.on("left_blink_event", handleLeftBlink);
         socket.current.on("right_blink_event", handleRightBlink);
 
-        speak("眨双眼两次开始休息。");
+        speak("Blink twice to start resting.");
 
         return () => {
             socket.current.disconnect();
@@ -205,11 +205,11 @@ const BaselineMode = ({
                         maxWidth: "80%",
                         margin: "20px",
                     }}>
-                    <h1 style={{ marginBottom: "-0.5rem" }}>基线模式</h1>
+                    <h1 style={{ marginBottom: "-0.5rem" }}>Baseline</h1>
                     <p style={{ lineHeight: "1.6", marginBottom: "1rem" }}>
-                        接下来在倒计时的时间内。让眼睛好好休息一下吧
+                        During the following period, freely relax your eyes;
                         <br />
-                        移开对于屏幕的注视，为眼部健康充能
+                        you may shift your gaze away from the screen to recharge for ocular health.
                     </p>
                     <p
                         style={{
@@ -218,7 +218,7 @@ const BaselineMode = ({
                             color: "pink",
                             fontWeight: "bold",
                         }}>
-                        开始基线模式（眨双眼两次）
+                        Start the game by blinking twice
                         <br />
                         <span style={{ color: "pink" }}>{blinkCount}/2</span>
                     </p>
@@ -238,12 +238,12 @@ const BaselineMode = ({
                             fontSize: "3rem",
                             marginBottom: "1rem",
                         }}>
-                        {remainingTime}秒
+                        {remainingTime}s
                     </h1>
                     <p>
-                        接下来在倒计时的时间内。让眼睛好好休息一下吧
+                        During the following period, freely relax your eyes;
                         <br />
-                        移开对于屏幕的注视，为眼部健康充能
+                        you may shift your gaze away from the screen to recharge for ocular health.
                     </p>
                 </div>
             )}

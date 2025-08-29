@@ -19,23 +19,23 @@ const ExperimentManager = () => {
         setIsTrialMode(!isTrialMode);
     };
     const [gameOrder, setGameOrder] = useState([
-        { id: "baseline", name: "基线模式" },
-        { id: "maze", name: "迷宫模式" },
-        { id: "dice", name: "骰子模式" },
+        { id: "baseline", name: "Baseline" },
+        { id: "maze", name: "Maze" },
+        { id: "dice", name: "Dice" },
     ]);
 
     const [taskOrders, setTaskOrders] = useState({
         baseline: [
-            { id: "difference", name: "找不同" },
-            { id: "memory", name: "图片记忆" },
+            { id: "difference", name: "Spot the Difference" },
+            { id: "memory", name: "Picture Memory" },
         ],
         maze: [
-            { id: "difference", name: "找不同" },
-            { id: "memory", name: "图片记忆" },
+            { id: "difference", name: "Spot the Difference" },
+            { id: "memory", name: "Picture Memory" },
         ],
         dice: [
-            { id: "memory", name: "图片记忆" },
-            { id: "difference", name: "找不同" },
+            { id: "memory", name: "Picture Memory" },
+            { id: "difference", name: "Spot the Difference" },
         ],
     });
 
@@ -279,7 +279,7 @@ const ExperimentManager = () => {
 
     useEffect(() => {
         if (currentStage === "completed") {
-            // 清除找不同图对记录
+            // 清除Spot the Difference图对记录
             localStorage.removeItem("usedDifferencePairs");
         }
     }, [currentStage]);
@@ -288,7 +288,7 @@ const ExperimentManager = () => {
         if (currentStage !== "running") return "";
         const game = gameOrder[currentGameIndex];
         const task = taskOrders[game.id][currentTaskIndex];
-        return `${game.name} - ${task.name} (第${currentRound}轮)`;
+        return `${game.name} - ${task.name} (${currentRound})`;
     };
 
     const DraggableList = ({
@@ -336,7 +336,7 @@ const ExperimentManager = () => {
         <div className={styles.container}>
             {showConfigPanel && (
                 <div className={styles.configPanel}>
-                    <h3>任务配置</h3>
+                    <h3>task configuration</h3>
                     {Object.entries(taskConfigs).map(([taskId, taskConfig]) => (
                         <div key={taskId}>
                             <h4>{taskId}</h4>
@@ -363,7 +363,7 @@ const ExperimentManager = () => {
                             ))}
                         </div>
                     ))}
-                    <h3>游戏配置</h3>
+                    <h3>game configuration</h3>
                     {Object.entries(gameConfigs).map(([gameId, gameConfig]) => (
                         <div key={gameId}>
                             <h4>{gameId}</h4>
@@ -400,7 +400,7 @@ const ExperimentManager = () => {
                 <button
                     onClick={handleTrialMode}
                     className={styles.trialButton}>
-                    {!isTrialMode ? "试玩一下" : "退出试玩"}
+                    {!isTrialMode ? "Free Trial" : "Quit"}
                 </button>
             )}
             {isTrialMode && <BlinkGame />}
@@ -449,7 +449,7 @@ const ExperimentManager = () => {
                     </button>
                     <div className={styles.mainSettings}>
                         <div className={styles.leftCol}>
-                            <h2>实验设置</h2>
+                            <h2>Experiment Settings</h2>
                             <div className={styles.inputGroup}>
                                 <input
                                     type="text"
@@ -463,7 +463,7 @@ const ExperimentManager = () => {
                             </div>
 
                             <div className={styles.orderSection}>
-                                <h3>眨眼游戏顺序</h3>
+                                <h3>Games</h3>
                                 <DraggableList
                                     items={gameOrder}
                                     onDropItem={handleGameDrag}
@@ -474,7 +474,7 @@ const ExperimentManager = () => {
                                 onClick={startExperiment}
                                 className={styles.startButton}
                                 disabled={!subjectId}>
-                                开始实验
+                                Start
                             </button>
                         </div>
                         <div className={styles.rightCol}>
@@ -482,7 +482,7 @@ const ExperimentManager = () => {
                                 <div
                                     key={game.id}
                                     className={styles.orderSection}>
-                                    <h3>{game.name} 的任务顺序</h3>
+                                    <h3>Screen Tasks in {game.name}</h3>
                                     <DraggableList
                                         items={taskOrders[game.id]}
                                         gameId={game.id}
@@ -502,16 +502,16 @@ const ExperimentManager = () => {
                 <div className={styles.runningContainer}>
                     <div className={styles.progressBar}>
                         <div className={styles.progressInfo}>
-                            <h3>实验进度</h3>
+                            <h3>Progress</h3>
                             <p>{getProgressText()}</p>
                             <p>
-                                游戏 {currentGameIndex + 1}/{gameOrder.length} |
-                                任务 {currentTaskIndex + 1}/
+                                Games {currentGameIndex + 1}/{gameOrder.length} |
+                                Tasks {currentTaskIndex + 1}/
                                 {
                                     taskOrders[gameOrder[currentGameIndex].id]
                                         .length
                                 }{" "}
-                                | 轮次 {currentRound}/2
+                                | Trials {currentRound}/2
                             </p>
                         </div>
                     </div>
@@ -564,9 +564,9 @@ const ExperimentManager = () => {
 
             {currentStage === "completed" && (
                 <div className={styles.completedContainer}>
-                    <h1>实验完成!</h1>
-                    <h2>实验者: {subjectId}</h2>
-                    <h2>完成时间: {new Date().toLocaleString()}</h2>
+                    <h1>Experiment Finished!</h1>
+                    <h2>Experimenter: {subjectId}</h2>
+                    <h2>Time used: {new Date().toLocaleString()}</h2>
                     <DataExporter
                         experimentData={experimentData}
                         subjectId={subjectId}
@@ -578,7 +578,7 @@ const ExperimentManager = () => {
                         onClick={() => setCurrentStage("setup")}
                         className={styles.restartButton}
                         style={{ marginLeft: "10px" }}>
-                        新的实验
+                        New experiment
                     </button>
                     <div className={styles.qzContainer}>
                         <div className={styles.qzItem}>
@@ -587,7 +587,7 @@ const ExperimentManager = () => {
                                 src={quizImg}
                                 alt="问卷"
                             />
-                            <p>问卷</p>
+                            <p>quiz</p>
                         </div>
                         {/* <div className={styles.qzItem}>
                             <img

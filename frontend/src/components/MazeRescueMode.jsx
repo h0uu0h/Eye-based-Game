@@ -102,7 +102,7 @@ const MazeRescueMode = ({
         if (!window.speechSynthesis) return;
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "zh-CN";
+        utterance.lang = "en-US";
         window.speechSynthesis.speak(utterance);
     }, []);
 
@@ -112,7 +112,7 @@ const MazeRescueMode = ({
 
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "zh-CN";
+            utterance.lang = "en-US";
             utterance.onend = () => {
                 setTimeout(() => {
                     resolve();
@@ -190,7 +190,7 @@ const MazeRescueMode = ({
         playSound("bg", { loop: true, volume: 0.3 });
 
         // 游戏开始语音
-        await speakAndWait("闭双眼开始第一段前行。");
+        await speakAndWait("Close both eyes to start moving forward.");
         if (!gameTimers.current.countdown) {
             gameState.current.gameStart = Date.now();
             // 开始倒计时
@@ -307,7 +307,7 @@ const MazeRescueMode = ({
         // 提示玩家眨眼进入奖励窗口
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "wallHit") {
-                speak("多次眨眼");
+                speak("Blink multiple times.");
                 setGamePhase("blinkPrompt");
 
                 // 如果1秒内没有眨眼两次，自动进入奖励窗口
@@ -359,7 +359,7 @@ const MazeRescueMode = ({
 
         // 提示转向方向
         const direction = config.turnSequence[currentTurn.current];
-        speak(`${direction === "left" ? "左" : "右"}转`);
+        speak(`${direction === "left" ? "Turn left" : "Turn right"}`);
         setGamePhase("turning");
 
         // 如果1秒内没有正确眨眼，提示玩家
@@ -367,9 +367,9 @@ const MazeRescueMode = ({
             if (gameState.current.phase === "turning") {
                 const direction = config.turnSequence[currentTurn.current];
                 speak(
-                    `${direction === "left" ? "左" : "右"}眨眼${
-                        direction === "left" ? "左" : "右"
-                    }转`
+                    `Blink your ${
+                        direction === "left" ? "left eye" : "right eye"
+                    } to turn ${direction}.`
                 );
             }
         }, config.promptTimeout);
@@ -385,7 +385,7 @@ const MazeRescueMode = ({
 
             currentTurn.current += 1;
             setGamePhase("moving");
-            speak("闭双眼");
+            speak("Close both eyes.");
         }
     }, [speak, playSound]);
 
@@ -396,9 +396,9 @@ const MazeRescueMode = ({
 
         const direction = config.turnSequence[currentTurn.current];
         speak(
-            `${direction === "left" ? "左" : "右"}眨眼${
-                direction === "left" ? "左" : "右"
-            }转`
+            `Blink your ${
+                direction === "left" ? "left eye" : "right eye"
+            } to turn ${direction}.`
         );
     }, [speak, playSound]);
 
@@ -569,7 +569,7 @@ const MazeRescueMode = ({
         socket.current.on("right_blink_event", handleRightBlink);
 
         // 初始语音提示
-        speak("眨双眼两次开始游戏。");
+        speak("Blink both eyes twice to start the game.");
 
         return () => {
             socket.current.disconnect();
@@ -599,29 +599,29 @@ const MazeRescueMode = ({
     const renderGameStateText = () => {
         switch (gamePhase) {
             case "intro":
-                return "请眨双眼两次开始游戏";
+                return "Blink both eyes twice to start the game";
             case "moving":
                 return gameState.current.eyeState === "closed"
-                    ? "移动中...睁双眼停止"
-                    : "请闭双眼开始移动";
+                    ? "Moving... open both eyes to stop"
+                    : "Close both eyes to start moving";
             case "wallHit":
-                return "到达路口，请睁双眼";
+                return "Intersection reached, open your eyes";
             case "blinkPrompt":
-                return "请眨双眼两次获取方向提示";
+                return "Blink both eyes twice to get a direction hint";
             case "blinkWindow":
-                return `快速眨眼获取时间奖励！(${blinkInWindow}次)`;
+                return `Blink quickly to gain a time bonus! (${blinkInWindow} blinks)`;
             case "turning":
-                return `请${
+                return `Please ${
                     config.turnSequence[currentTurn.current] === "left"
-                        ? "左"
-                        : "右"
-                }眨眼转向`;
+                        ? "left"
+                        : "right"
+                } eye blink to turn`;
             case "end":
-                return "救援成功！";
+                return "Rescue complete!";
             case "success":
-                return "救援成功！";
+                return "Rescue successful!";
             case "fail":
-                return "救援失败";
+                return "Rescue failed";
             default:
                 return "";
         }
@@ -644,22 +644,26 @@ const MazeRescueMode = ({
                 textAlign: "center",
             }}>
             {/* 游戏标题 */}
-            <h1 style={{ marginBottom: "-0.5rem" }}>迷宫救援</h1>
+            <h1 style={{ marginBottom: "-0.5rem" }}>Maze</h1>
             <p style={{ color: "rgb(255,255,255,0.7)" }}>
-                根据语音提示完成迷宫救援任务
+                Move according to the voice instructions and try to escape the
+                maze in less time!
+                <br />
+                At each corner, blink as many times as you can to gain time
+                bonuses!
             </p>
 
             {/* 等待开始界面（眨双眼两次） */}
             {gamePhase === "intro" && (
                 <div>
                     <p>
-                        闭双眼：向前移动
+                        Close both eyes: Move
                         <br />
-                        睁双眼：停止移动
+                        Open both eyes: Stop moving
                         <br />
-                        左眨眼：左转
+                        Blink multiple times after rolling: Gain time bonuses
                         <br />
-                        右眨眼：右转
+                        Blink left / blink right: Turn around
                     </p>
                     <p
                         style={{
@@ -667,7 +671,7 @@ const MazeRescueMode = ({
                             fontSize: "1rem",
                             color: "pink",
                         }}>
-                        开始游戏（眨双眼两次）
+                        Start the game by blinking twice
                         <span style={{ color: "pink" }}>{blinkCount}/2</span>
                     </p>
                 </div>
@@ -677,15 +681,16 @@ const MazeRescueMode = ({
                 gamePhase !== "success" &&
                 gamePhase !== "fail" && (
                     <>
-                        <h1>{remainingTime}秒</h1>
+                        <h1>{remainingTime}s</h1>
                         <p>
-                            闭双眼：向前移动
+                            Close both eyes: Move
                             <br />
-                            睁双眼：停止移动
+                            Open both eyes: Stop moving
                             <br />
-                            左眨眼：左转
+                            Blink multiple times after rolling: Gain time
+                            bonuses
                             <br />
-                            右眨眼：右转
+                            Blink left / blink right: Turn around
                         </p>
                         <p
                             style={{
@@ -697,15 +702,6 @@ const MazeRescueMode = ({
                         </p>
                     </>
                 )}
-
-            {(gamePhase === "success" || gamePhase === "fail") && (
-                <div className="end-panel">
-                    <h2>
-                        {gamePhase === "success" ? "救援成功!" : "救援失败"}
-                    </h2>
-                    <p>正在生成结算信息...</p>
-                </div>
-            )}
 
             {/* 隐藏的音效元素 */}
             <div style={{ display: "none" }}>

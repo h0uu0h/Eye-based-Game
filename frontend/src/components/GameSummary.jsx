@@ -7,8 +7,8 @@ const GameSummary = ({ data, onClose }) => {
         if (mode === "baseline") {
             return (
                 <>
-                    <p>模式：基线模式</p>
-                    <p>放松时间结束</p>
+                    <p>Game: Baseline</p>
+                    <p>Relaxation time ends</p>
                 </>
             );
         }
@@ -16,23 +16,23 @@ const GameSummary = ({ data, onClose }) => {
             // 骰子空间模式
             return (
                 <>
-                    <p>模式：骰子空间</p>
+                    <p>Game: Dice</p>
                     <p>
-                        总点数：{data.totalPoints} （目标: {data.minPoints}）
+                        Total Score:{data.totalPoints} (Target:{data.minPoints})
                     </p>
-                    <p>骰子点数：{data.dicePoints.join(", ")}</p>
+                    <p>Corridor Points:{data.dicePoints.join(", ")}</p>
                     <p>
-                        眨眼次数：总{data.totalBlinks}次 (左{data.leftBlinks}/右
+                        Blink Count: Total {data.totalBlinks} Times (Left{data.leftBlinks}/Right
                         {data.rightBlinks})
                     </p>
                     <p>
-                        闭眼时长：{(data.closeEyeDuration / 1000).toFixed(2)}秒
+                        Eye Closure Duration: {(data.closeEyeDuration / 1000).toFixed(2)} seconds
                     </p>
-                    <p>错误切换：{data.wrongSwitches}次</p>
+                    <p>Incorrect Switches: {data.wrongSwitches} times</p>
                     {data.isSuccess ? (
-                        <p>🎉 成功达成目标！</p>
+                        <p>🎉 Goal Achieved Successfully!</p>
                     ) : (
-                        <p>❌ 未达成目标</p>
+                        <p>❌ Failed to achieve the goal</p>
                     )}
                 </>
             );
@@ -42,23 +42,23 @@ const GameSummary = ({ data, onClose }) => {
             // 迷宫救援模式
             return (
                 <>
-                    <p>模式：迷宫救援</p>
+                    <p>Game: Maze</p>
                     <p>
-                        用时：
+                        Time used：
                         {data.finalTime > 0
-                            ? `${data.finalTime.toFixed(2)}秒`
-                            : "未完成"}{" "}
-                        (奖励: -{(data.timeBonus / 1000).toFixed(2)}秒)
+                            ? `${data.finalTime.toFixed(2)} seconds`
+                            : "Unfinished"}{" "}
+                        (Award: -{(data.timeBonus / 1000).toFixed(2)} seconds)
                     </p>
                     <p>
-                        眨眼次数：总{data.totalBlinks}次 (左{data.leftBlinks}/右
+                        Blinks: Total{data.totalBlinks} Times (Left{data.leftBlinks}/Rignt
                         {data.rightBlinks})
                     </p>
                     <p>
-                        闭眼时长：{(data.closeEyeDuration / 1000).toFixed(2)}秒
+                        Eye Closure Duration: {(data.closeEyeDuration / 1000).toFixed(2)} seconds
                     </p>
-                    <p>错误转向：{data.wrongTurns}次</p>
-                    {data.isSuccess ? <p>🎉 救援成功！</p> : <p>❌ 救援失败</p>}
+                    <p>Incorrect Turns: {data.wrongTurns} times</p>
+                    {data.isSuccess ? <p>🎉 Successfully completed rescue operation！</p> : <p>❌ Fail</p>}
                 </>
             );
         }
@@ -81,7 +81,7 @@ const GameSummary = ({ data, onClose }) => {
                 minWidth: "300px",
                 fontFamily: "Arial",
             }}>
-            <h2 style={{ marginTop: 0 }}>🎮 游戏结算</h2>
+            <h2 style={{ marginTop: 0 }}>Game Summary</h2>
 
             {renderSummary()}
 
@@ -96,7 +96,7 @@ const GameSummary = ({ data, onClose }) => {
                     borderRadius: "6px",
                     cursor: "pointer",
                 }}>
-                下一步
+                NEXT
             </button>
         </div>
     );

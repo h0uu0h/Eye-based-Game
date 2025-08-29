@@ -1,0 +1,18 @@
+{
+  "game_id": "e66f3647-6206-424a-9c7e-63c774d926a6",
+  "game_type": "maze",
+  "start_time": "2025-08-29T12:25:54.481141",
+  "end_time": "2025-08-29T12:30:50.812278",
+  "total_blinks": 1,
+  "left_total_blinks": 0,
+  "right_total_blinks": 0,
+  "blink_details": [
+    {
+      "timestamp": "2025-08-29T12:25:58.230768",
+      "min_ear": 0.1108,
+      "avg_ear": 0.2721,
+      "duration": 0,
+      "type": "full"
+    }
+  ]
+}
