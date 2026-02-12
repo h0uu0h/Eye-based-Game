@@ -12,13 +12,7 @@ import deleteIcon from "/icon/delete.svg";
 import DiceSpaceMode from "./DiceSpaceMode";
 import BaselineMode from "./BaselineMode";
 
-const BlinkGame = ({
-    mode: externalMode = "baseline",
-    config,
-    onComplete,
-    gameId,
-    experimentId,
-}) => {
+const BlinkGame = ({ mode: externalMode = "baseline", config, onComplete, gameId, experimentId }) => {
     const canvasRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -111,6 +105,7 @@ const BlinkGame = ({
 
     // 当游戏模式组件返回结果时处理
     const handleGameEnd = (result, isRestarting = false) => {
+        // 1. 立即保存前端传来的初步结果（包含得分等）
         resultRef.current = result;
 
         // 确保 socket 可用
@@ -119,63 +114,51 @@ const BlinkGame = ({
             return;
         }
 
-        // 发送结束游戏请求到后端
+        // 2. 向后端请求结算数据
         socket.current.emit("end_game", (response) => {
+            // 注意：这里检查后端返回的 status 和数据键名
             if (response?.status === "game_ended") {
-                console.log("resultRef.current", resultRef.current);
+                console.log("后端原始数据:", response.game_data);
 
-                setSummary(resultRef.current);
-                console.log("收到后端游戏数据:", response.game_data);
-                const {
-                    blinkCount,
-                    leftBlinks,
-                    rightBlinks,
-                    timestamp,
-                    mode,
-                    totalBlinks,
-                    ...filteredFrontendResult
-                } = resultRef.current;
-                // 合并前后端数据
+                // 3. 【核心修改】合并前端数据与后端数据
+                // 注意：这里要确保 response.game_data 里包含 blink_details
                 const fullRecord = {
-                    ...filteredFrontendResult,
-                    ...response.game_data,
+                    ...resultRef.current, // 保留前端的分数、用时等
+                    ...response.game_data, // 覆盖/合并后端的 blink_details, total_blinks 等
                     restarted: isRestarting,
                 };
 
-                console.log("完整游戏记录:", fullRecord);
+                // 4. 【关键步骤】将合并后的完整记录回填到 Ref 中
+                // 只有这样，后续 GameSummary 关闭调用 onComplete 时，传给父组件的才是带详情的数据
+                resultRef.current = fullRecord;
 
-                // 保存到本地历史
-                const history = JSON.parse(
-                    localStorage.getItem("blinkGameHistory") || "[]"
-                );
+                // 5. 更新用于 UI 显示的 Summary 状态
+                if (!isRestarting) {
+                    setSummary(fullRecord); // 传入完整记录，让结算页面能显示眨眼详情
+                }
+
+                // 6. 冗余存储逻辑（保持你原有的逻辑）
+                const history = JSON.parse(localStorage.getItem("blinkGameHistory") || "[]");
                 history.push(fullRecord);
-                localStorage.setItem(
-                    "blinkGameHistory",
-                    JSON.stringify(history)
-                );
+                localStorage.setItem("blinkGameHistory", JSON.stringify(history));
 
-                // 如果有关联的实验ID，也保存到实验特定的存储中
                 if (experimentId) {
-                    const experimentBlinkHistory = JSON.parse(
-                        localStorage.getItem(`blinkHistory_${experimentId}`) ||
-                            "[]"
-                    );
+                    const experimentBlinkHistory = JSON.parse(localStorage.getItem(`blinkHistory_${experimentId}`) || "[]");
                     experimentBlinkHistory.push({
                         ...fullRecord,
                         gameId: gameIdRef.current,
                         experimentId: experimentId,
                     });
-                    localStorage.setItem(
-                        `blinkHistory_${experimentId}`,
-                        JSON.stringify(experimentBlinkHistory)
-                    );
+                    localStorage.setItem(`blinkHistory_${experimentId}`, JSON.stringify(experimentBlinkHistory));
                 }
-                if (!isRestarting) {
-                    setSummary(result);
-                }
+            } else {
+                console.error("后端结算失败:", response?.message);
+                // 如果后端失败，至少保留前端数据
+                if (!isRestarting) setSummary(result);
             }
+
             if (!isRestarting) {
-                // 关闭游戏
+                // 关闭游戏视图
                 setGameStarted(false);
                 setGameEnded(false);
             }
@@ -236,17 +219,11 @@ const BlinkGame = ({
                 setCalibrated(true);
                 localStorage.setItem("threshold", threshold);
             });
-            socket.current.emit(
-                "start_game",
-                { game_type: currentGameMode, game_id: gameIdRef.current },
-                (response) => {
-                    if (response.status === "game_started") {
-                        console.log(
-                            `游戏已开始: ${response.game_id}, 模式: ${response.game_type}`
-                        );
-                    }
+            socket.current.emit("start_game", { game_type: currentGameMode, game_id: gameIdRef.current }, (response) => {
+                if (response.status === "game_started") {
+                    console.log(`游戏已开始: ${response.game_id}, 模式: ${response.game_type}`);
                 }
-            );
+            });
             // 发送帧
             const canvas = document.createElement("canvas");
             const ctx = canvas.getContext("2d");
@@ -265,7 +242,7 @@ const BlinkGame = ({
                         }
                     },
                     "image/jpeg",
-                    0.6
+                    0.6,
                 );
             }, 1000 / capRef.current);
 
@@ -273,12 +250,7 @@ const BlinkGame = ({
             socket.current.on("eye_landmarks", drawEyePoints);
         };
 
-        const drawEyePoints = ({
-            left_eye,
-            right_eye,
-            mouth_outer,
-            mouth_inner,
-        }) => {
+        const drawEyePoints = ({ left_eye, right_eye, mouth_outer, mouth_inner }) => {
             const canvas = canvasRef.current;
             const ctx = canvas.getContext("2d");
 
@@ -357,9 +329,7 @@ const BlinkGame = ({
     }, [gameStarted]);
 
     const handleExportHistory = () => {
-        const history = JSON.parse(
-            localStorage.getItem("blinkGameHistory") || "[]"
-        );
+        const history = JSON.parse(localStorage.getItem("blinkGameHistory") || "[]");
         if (history.length === 0) {
             alert("没有历史记录可导出！");
             return;
@@ -389,53 +359,17 @@ const BlinkGame = ({
     const renderModeComponent = () => {
         switch (mode) {
             case "maze60":
-                return (
-                    <MazeRescueMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={maze60Config}
-                    />
-                );
+                return <MazeRescueMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={maze60Config} />;
             case "dice60":
-                return (
-                    <DiceSpaceMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={dice60Config}
-                    />
-                );
+                return <DiceSpaceMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={dice60Config} />;
             case "maze":
-                return (
-                    <MazeRescueMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={config}
-                    />
-                );
+                return <MazeRescueMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={config} />;
             case "dice":
-                return (
-                    <DiceSpaceMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={config}
-                    />
-                );
+                return <DiceSpaceMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={config} />;
             case "baseline":
-                return (
-                    <BaselineMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={config}
-                    />
-                );
+                return <BaselineMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={config} />;
             default:
-                return (
-                    <BaselineMode
-                        onGameEnd={handleGameEnd}
-                        shouldEnd={gameEnded}
-                        config={config}
-                    />
-                );
+                return <BaselineMode onGameEnd={handleGameEnd} shouldEnd={gameEnded} config={config} />;
         }
     };
 
@@ -448,15 +382,10 @@ const BlinkGame = ({
             style={{
                 backgroundColor: gameStarted ? "rgb(0,0,0)" : "rgba(0,0,0,0.5)",
             }}>
-            {!gameStarted && !isExperimentMode && (
-                <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>
-            )}
+            {!gameStarted && !isExperimentMode && <h1>&nbsp;&nbsp;休息休息眼睛吧！</h1>}
             {!isExperimentMode && (
                 <>
-                    <button
-                        disabled={gameStarted}
-                        onClick={handleExportHistory}
-                        className={styles.outputBtn}>
+                    <button disabled={gameStarted} onClick={handleExportHistory} className={styles.outputBtn}>
                         <img
                             src={outputIcon}
                             style={{
@@ -494,11 +423,7 @@ const BlinkGame = ({
                     <button
                         disabled={gameStarted}
                         onClick={() => {
-                            if (
-                                confirm(
-                                    "确定要清除所有历史记录吗？此操作不可撤销。"
-                                )
-                            ) {
+                            if (confirm("确定要清除所有历史记录吗？此操作不可撤销。")) {
                                 localStorage.removeItem("blinkGameHistory");
                                 alert("历史记录已清除！");
                             }
@@ -508,9 +433,7 @@ const BlinkGame = ({
                             src={deleteIcon}
                             style={{
                                 width: "24px",
-                                filter: gameStarted
-                                    ? "grayscale(100%)"
-                                    : "none",
+                                filter: gameStarted ? "grayscale(100%)" : "none",
                             }}
                             alt="清除历史"
                         />
@@ -542,9 +465,7 @@ const BlinkGame = ({
                         padding: 0,
                         // backgroundColor:"pink",
                     }}>
-                    <button
-                        onClick={handleRestart}
-                        className={styles.restartBtn}>
+                    <button onClick={handleRestart} className={styles.restartBtn}>
                         Restart
                     </button>
                     <canvas

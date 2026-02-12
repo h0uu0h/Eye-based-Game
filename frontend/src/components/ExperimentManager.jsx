@@ -101,10 +101,7 @@ const ExperimentManager = () => {
             let parsedValue;
 
             if (Array.isArray(oldVal)) {
-                parsedValue =
-                    typeof oldVal[0] === "number"
-                        ? value.split(",").map((v) => Number(v.trim()))
-                        : value.split(",").map((v) => v.trim());
+                parsedValue = typeof oldVal[0] === "number" ? value.split(",").map((v) => Number(v.trim())) : value.split(",").map((v) => v.trim());
             } else if (typeof oldVal === "number") {
                 parsedValue = Number(value);
             } else {
@@ -154,75 +151,16 @@ const ExperimentManager = () => {
             status: "running",
         };
         console.log("start", experimentConfig);
-        localStorage.setItem(
-            `experiment_${newExperimentId}`,
-            JSON.stringify(experimentConfig)
-        );
+        localStorage.setItem(`experiment_${newExperimentId}`, JSON.stringify(experimentConfig));
     };
 
     const handleTaskComplete = (gameId, blinkData = null) => {
-        const gameMode = gameOrder[currentGameIndex].id;
-        const taskType = taskOrders[gameMode][currentTaskIndex].id;
-        //屏幕任务数据格式
-        const taskData = {
-            type: "task",
-            gameMode,
-            taskType,
-            round: currentRound,
-            gameId,
-            timestamp: new Date().toISOString(),
-            blinkData,
-        };
-
-        setExperimentData((prev) => [...prev, taskData]);
-
-        // 保存任务数据到localStorage
-        if (experimentIdRef.current) {
-            const existingData = JSON.parse(
-                localStorage.getItem(`experiment_${experimentIdRef.current}`) ||
-                    "{}"
-            );
-            const sessions = existingData.sessions || [];
-            sessions.push(taskData);
-            existingData.sessions = sessions;
-            localStorage.setItem(
-                `experiment_${experimentIdRef.current}`,
-                JSON.stringify(existingData)
-            );
-        }
+        saveSession("task", gameId, blinkData);
     };
 
     const handleBlinkGameComplete = (gameId, blinkData = null) => {
         const gameMode = gameOrder[currentGameIndex].id;
-        const taskType = taskOrders[gameMode][currentTaskIndex].id;
-
-        //眨眼游戏数据格式
-        const blinkGameData = {
-            type: "blink",
-            gameMode,
-            taskType,
-            round: currentRound,
-            gameId,
-            timestamp: new Date().toISOString(),
-            blinkData: blinkData,
-        };
-
-        setExperimentData((prev) => [...prev, blinkGameData]);
-
-        // 保存眨眼游戏数据到localStorage
-        if (experimentIdRef.current) {
-            const existingData = JSON.parse(
-                localStorage.getItem(`experiment_${experimentIdRef.current}`) ||
-                    "{}"
-            );
-            const sessions = existingData.sessions || [];
-            sessions.push(blinkGameData);
-            existingData.sessions = sessions;
-            localStorage.setItem(
-                `experiment_${experimentIdRef.current}`,
-                JSON.stringify(existingData)
-            );
-        }
+        saveSession("blink", gameId, blinkData);
 
         const tasks = taskOrders[gameMode];
 
@@ -239,17 +177,10 @@ const ExperimentManager = () => {
             } else {
                 // 实验完成，更新状态
                 if (experimentIdRef.current) {
-                    const existingData = JSON.parse(
-                        localStorage.getItem(
-                            `experiment_${experimentIdRef.current}`
-                        ) || "{}"
-                    );
+                    const existingData = JSON.parse(localStorage.getItem(`experiment_${experimentIdRef.current}`) || "{}");
                     existingData.status = "completed";
                     existingData.completedAt = new Date().toISOString();
-                    localStorage.setItem(
-                        `experiment_${experimentIdRef.current}`,
-                        JSON.stringify(existingData)
-                    );
+                    localStorage.setItem(`experiment_${experimentIdRef.current}`, JSON.stringify(existingData));
                 }
                 setCurrentStage("completed");
             }
@@ -269,11 +200,7 @@ const ExperimentManager = () => {
     };
 
     const handleTaskDrag = (gameId, fromIndex, toIndex) => {
-        const updatedTasks = handleReorder(
-            taskOrders[gameId],
-            fromIndex,
-            toIndex
-        );
+        const updatedTasks = handleReorder(taskOrders[gameId], fromIndex, toIndex);
         setTaskOrders({ ...taskOrders, [gameId]: updatedTasks });
     };
 
@@ -291,12 +218,7 @@ const ExperimentManager = () => {
         return `${game.name} - ${task.name} (第${currentRound}轮)`;
     };
 
-    const DraggableList = ({
-        items,
-        onDropItem,
-        gameId,
-        allowCrossGroupDrag = true,
-    }) => {
+    const DraggableList = ({ items, onDropItem, gameId, allowCrossGroupDrag = true }) => {
         return items.map((item, index) => (
             <div
                 key={item.id}
@@ -309,10 +231,7 @@ const ExperimentManager = () => {
                 }}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
-                    const fromIndex = parseInt(
-                        e.dataTransfer.getData("text"),
-                        10
-                    );
+                    const fromIndex = parseInt(e.dataTransfer.getData("text"), 10);
 
                     if (!allowCrossGroupDrag) {
                         const fromGameId = e.dataTransfer.getData("game-id");
@@ -331,7 +250,32 @@ const ExperimentManager = () => {
             </div>
         ));
     };
+    // ExperimentManager.jsx
+    const saveSession = (type, gameId, blinkData) => {
+        const gameMode = gameOrder[currentGameIndex].id;
+        const taskType = taskOrders[gameMode][currentTaskIndex].id;
 
+        const sessionData = {
+            type, // "task" 或 "blink"
+            gameMode,
+            taskType,
+            round: currentRound,
+            gameId,
+            timestamp: new Date().toISOString(),
+            blinkData: blinkData,
+        };
+
+        setExperimentData((prev) => [...prev, sessionData]);
+
+        if (experimentIdRef.current) {
+            const storageKey = `experiment_${experimentIdRef.current}`;
+            const existingData = JSON.parse(localStorage.getItem(storageKey) || "{}");
+            const sessions = existingData.sessions || [];
+            sessions.push(sessionData);
+            existingData.sessions = sessions;
+            localStorage.setItem(storageKey, JSON.stringify(existingData));
+        }
+    };
     return (
         <div className={styles.container}>
             {showConfigPanel && (
@@ -344,20 +288,9 @@ const ExperimentManager = () => {
                                 <div key={key}>
                                     <label>{key}:</label>
                                     <input
-                                        type={
-                                            typeof value === "number"
-                                                ? "number"
-                                                : "text"
-                                        }
+                                        type={typeof value === "number" ? "number" : "text"}
                                         value={value}
-                                        onChange={(e) =>
-                                            handleConfigChange(
-                                                "task",
-                                                taskId,
-                                                key,
-                                                e.target.value
-                                            )
-                                        }
+                                        onChange={(e) => handleConfigChange("task", taskId, key, e.target.value)}
                                     />
                                 </div>
                             ))}
@@ -371,24 +304,9 @@ const ExperimentManager = () => {
                                 <div key={key}>
                                     <label>{key}:</label>
                                     <input
-                                        type={
-                                            typeof value === "number"
-                                                ? "number"
-                                                : "text"
-                                        }
-                                        value={
-                                            Array.isArray(value)
-                                                ? value.join(",")
-                                                : value
-                                        }
-                                        onChange={(e) =>
-                                            handleConfigChange(
-                                                "game",
-                                                gameId,
-                                                key,
-                                                e.target.value
-                                            )
-                                        }
+                                        type={typeof value === "number" ? "number" : "text"}
+                                        value={Array.isArray(value) ? value.join(",") : value}
+                                        onChange={(e) => handleConfigChange("game", gameId, key, e.target.value)}
                                     />
                                 </div>
                             ))}
@@ -397,9 +315,7 @@ const ExperimentManager = () => {
                 </div>
             )}
             {currentStage === "setup" && (
-                <button
-                    onClick={handleTrialMode}
-                    className={styles.trialButton}>
+                <button onClick={handleTrialMode} className={styles.trialButton}>
                     {!isTrialMode ? "试玩一下" : "退出试玩"}
                 </button>
             )}
@@ -409,22 +325,13 @@ const ExperimentManager = () => {
                     <DataExporter />
                     <button
                         onClick={() => {
-                            if (
-                                confirm(
-                                    "确定要清除所有实验记录吗？此操作不可撤销。"
-                                )
-                            ) {
+                            if (confirm("确定要清除所有实验记录吗？此操作不可撤销。")) {
                                 // 清除所有实验相关的localStorage数据
                                 const keysToRemove = [];
 
                                 for (let i = 0; i < localStorage.length; i++) {
                                     const key = localStorage.key(i);
-                                    if (
-                                        key &&
-                                        (key === "blinkGameHistory" ||
-                                            key.startsWith("experiment_") ||
-                                            key.startsWith("blinkHistory_"))
-                                    ) {
+                                    if (key && (key === "blinkGameHistory" || key.startsWith("experiment_") || key.startsWith("blinkHistory_"))) {
                                         keysToRemove.push(key);
                                     }
                                 }
@@ -433,9 +340,7 @@ const ExperimentManager = () => {
                                     localStorage.removeItem(key);
                                 });
 
-                                alert(
-                                    `已清除 ${keysToRemove.length} 条实验记录！`
-                                );
+                                alert(`已清除 ${keysToRemove.length} 条实验记录！`);
                             }
                         }}
                         className={styles.deleteBtn}>
@@ -464,32 +369,21 @@ const ExperimentManager = () => {
 
                             <div className={styles.orderSection}>
                                 <h3>眨眼游戏顺序</h3>
-                                <DraggableList
-                                    items={gameOrder}
-                                    onDropItem={handleGameDrag}
-                                    allowCrossGroupDrag={true}
-                                />
+                                <DraggableList items={gameOrder} onDropItem={handleGameDrag} allowCrossGroupDrag={true} />
                             </div>
-                            <button
-                                onClick={startExperiment}
-                                className={styles.startButton}
-                                disabled={!subjectId}>
+                            <button onClick={startExperiment} className={styles.startButton} disabled={!subjectId}>
                                 开始实验
                             </button>
                         </div>
                         <div className={styles.rightCol}>
                             {gameOrder.map((game) => (
-                                <div
-                                    key={game.id}
-                                    className={styles.orderSection}>
+                                <div key={game.id} className={styles.orderSection}>
                                     <h3>{game.name} 的任务顺序</h3>
                                     <DraggableList
                                         items={taskOrders[game.id]}
                                         gameId={game.id}
                                         allowCrossGroupDrag={false}
-                                        onDropItem={(from, to) =>
-                                            handleTaskDrag(game.id, from, to)
-                                        }
+                                        onDropItem={(from, to) => handleTaskDrag(game.id, from, to)}
                                     />
                                 </div>
                             ))}
@@ -505,29 +399,20 @@ const ExperimentManager = () => {
                             <h3>实验进度</h3>
                             <p>{getProgressText()}</p>
                             <p>
-                                游戏 {currentGameIndex + 1}/{gameOrder.length} |
-                                任务 {currentTaskIndex + 1}/
-                                {
-                                    taskOrders[gameOrder[currentGameIndex].id]
-                                        .length
-                                }{" "}
-                                | 轮次 {currentRound}/2
+                                游戏 {currentGameIndex + 1}/{gameOrder.length} | 任务 {currentTaskIndex + 1}/
+                                {taskOrders[gameOrder[currentGameIndex].id].length} | 轮次 {currentRound}/2
                             </p>
                         </div>
                     </div>
 
                     {(() => {
                         const currentGameId = gameOrder[currentGameIndex].id;
-                        const currentTask =
-                            taskOrders[currentGameId][currentTaskIndex];
+                        const currentTask = taskOrders[currentGameId][currentTaskIndex];
                         const taskGameId = `${subjectIdRef.current}-${currentGameId}-${currentTask.id}-${currentRound}-task`;
                         const blinkGameId = `${subjectIdRef.current}-${currentGameId}-${currentTask.id}-${currentRound}-blink`;
 
                         // 检查是否应该显示眨眼游戏
-                        const shouldShowBlinkGame =
-                            experimentData.length > 0 &&
-                            experimentData[experimentData.length - 1].type ===
-                                "task";
+                        const shouldShowBlinkGame = experimentData.length > 0 && experimentData[experimentData.length - 1].type === "task";
 
                         if (shouldShowBlinkGame) {
                             return (
@@ -542,21 +427,9 @@ const ExperimentManager = () => {
                         }
 
                         if (currentTask.id === "memory") {
-                            return (
-                                <MemoryTask
-                                    config={taskConfigs.memory}
-                                    onComplete={handleTaskComplete}
-                                    gameId={taskGameId}
-                                />
-                            );
+                            return <MemoryTask config={taskConfigs.memory} onComplete={handleTaskComplete} gameId={taskGameId} />;
                         } else {
-                            return (
-                                <DifferenceTask
-                                    config={taskConfigs.difference}
-                                    onComplete={handleTaskComplete}
-                                    gameId={taskGameId}
-                                />
-                            );
+                            return <DifferenceTask config={taskConfigs.difference} onComplete={handleTaskComplete} gameId={taskGameId} />;
                         }
                     })()}
                 </div>
@@ -574,19 +447,12 @@ const ExperimentManager = () => {
                         gameOrder={gameOrder}
                         taskOrders={taskOrders}
                     />
-                    <button
-                        onClick={() => setCurrentStage("setup")}
-                        className={styles.restartButton}
-                        style={{ marginLeft: "10px" }}>
+                    <button onClick={() => setCurrentStage("setup")} className={styles.restartButton} style={{ marginLeft: "10px" }}>
                         新的实验
                     </button>
                     <div className={styles.qzContainer}>
                         <div className={styles.qzItem}>
-                            <img
-                                className={styles.qzImg}
-                                src={quizImg}
-                                alt="问卷"
-                            />
+                            <img className={styles.qzImg} src={quizImg} alt="问卷" />
                             <p>问卷</p>
                         </div>
                         {/* <div className={styles.qzItem}>
