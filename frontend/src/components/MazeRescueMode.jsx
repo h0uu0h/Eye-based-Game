@@ -661,13 +661,13 @@ const MazeRescueMode = ({
                         <br />
                         Open both eyes: Stop moving
                         <br />
-                        Blink multiple times after rolling: Gain time bonuses
+                        Blink multiple times after moving: Gain time bonuses
                         <br />
                         Blink left / blink right: Turn around
                     </p>
                     <p
                         style={{
-                            marginTop: "2rem",
+                            marginTop: "1rem",
                             fontSize: "1rem",
                             color: "pink",
                         }}>
@@ -687,14 +687,14 @@ const MazeRescueMode = ({
                             <br />
                             Open both eyes: Stop moving
                             <br />
-                            Blink multiple times after rolling: Gain time
+                            Blink multiple times after moving: Gain time
                             bonuses
                             <br />
                             Blink left / blink right: Turn around
                         </p>
                         <p
                             style={{
-                                marginTop: "2rem",
+                                marginTop: "1rem",
                                 fontSize: "1rem",
                                 color: "pink",
                             }}>

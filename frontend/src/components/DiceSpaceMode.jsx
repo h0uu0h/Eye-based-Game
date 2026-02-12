@@ -15,11 +15,7 @@ import levelUpSound from "/sounds/dice/levelup.mp3";
 import victorySound from "/sounds/dice/victory.mp3";
 import failSound from "/sounds/dice/fail.mp3";
 
-const DiceSpaceMode = ({
-    onGameEnd,
-    shouldEnd,
-    config: incomingConfig = {},
-}) => {
+const DiceSpaceMode = ({ onGameEnd, shouldEnd, config: incomingConfig = {} }) => {
     // ================ 游戏配置 ================
     const defaultConfig = {
         closeEyeTime: [1, 2, 3], // 随机闭眼时间 (秒)
@@ -261,19 +257,14 @@ const DiceSpaceMode = ({
 
         // 设置随机闭眼目标时间（相当于迷宫中的移动时间）
         if (gameState.current.targetCloseTime === 0) {
-            const randomTime =
-                config.closeEyeTime[
-                    Math.floor(Math.random() * config.closeEyeTime.length)
-                ];
+            const randomTime = config.closeEyeTime[Math.floor(Math.random() * config.closeEyeTime.length)];
             gameState.current.targetCloseTime = randomTime * 1000;
         }
 
         // 检查是否到达完成摇骰子的时间（相当于迷宫的撞墙检查）
         gameTimers.current.rollCheck = setInterval(() => {
-            const currentDuration =
-                Date.now() - gameState.current.closeEyeStart;
-            const totalDuration =
-                gameState.current.accumulatedCloseTime + currentDuration;
+            const currentDuration = Date.now() - gameState.current.closeEyeStart;
+            const totalDuration = gameState.current.accumulatedCloseTime + currentDuration;
 
             if (totalDuration >= gameState.current.targetCloseTime) {
                 completeRoll(); // 相当于迷宫的 hitWall()
@@ -330,10 +321,7 @@ const DiceSpaceMode = ({
         setDicePoints(newDicePoints);
 
         // 更新总点数
-        const newTotal = newDicePoints.reduce(
-            (sum, point) => sum + (point || 0),
-            0
-        );
+        const newTotal = newDicePoints.reduce((sum, point) => sum + (point || 0), 0);
         totalPointsRef.current = newTotal;
         setTotalPoints(newTotal);
 
@@ -370,9 +358,7 @@ const DiceSpaceMode = ({
         stopSound("timer");
 
         // 计算奖励点数
-        const bonusPoints = Math.floor(
-            bonusBlinksRef.current * config.bonusPerBlink
-        );
+        const bonusPoints = Math.floor(bonusBlinksRef.current * config.bonusPerBlink);
         statsRef.current.bonusPoints += bonusPoints;
         setStats((prev) => ({
             ...prev,
@@ -382,8 +368,7 @@ const DiceSpaceMode = ({
         // 更新当前骰子点数
         const newDicePoints = [...dicePointsRef.current];
 
-        newDicePoints[currentDice.current] =
-            (newDicePoints[currentDice.current] || 0) + bonusPoints;
+        newDicePoints[currentDice.current] = (newDicePoints[currentDice.current] || 0) + bonusPoints;
         if (newDicePoints[currentDice.current] >= 6) {
             newDicePoints[currentDice.current] = 6;
         }
@@ -391,10 +376,7 @@ const DiceSpaceMode = ({
         setDicePoints(newDicePoints);
 
         // 更新总点数
-        const newTotal = newDicePoints.reduce(
-            (sum, point) => sum + (point || 0),
-            0
-        );
+        const newTotal = newDicePoints.reduce((sum, point) => sum + (point || 0), 0);
         totalPointsRef.current = newTotal;
         setTotalPoints(newTotal);
         const isLastDice = currentDice.current === config.switchSequence.length;
@@ -412,9 +394,7 @@ const DiceSpaceMode = ({
         gameTimers.current.prompt = setTimeout(() => {
             if (gameState.current.phase === "switching") {
                 const direction = config.switchSequence[currentDice.current];
-                speak(
-                    `Blink ${direction === "left" ? "left" : "right"} to switch`
-                );
+                speak(`Blink ${direction === "left" ? "left" : "right"} to switch`);
             }
         }, config.promptTimeout);
     }, [speak, stopSound]);
@@ -490,10 +470,7 @@ const DiceSpaceMode = ({
                 return;
             }
 
-            if (
-                gameState.current.phase === "throwPrompt" &&
-                newTotalBlinks >= 2
-            ) {
+            if (gameState.current.phase === "throwPrompt" && newTotalBlinks >= 2) {
                 clearTimeout(gameTimers.current.prompt);
                 startBonusWindow();
                 return;
@@ -512,11 +489,7 @@ const DiceSpaceMode = ({
     const handleLeftBlink = useCallback(
         (data) => {
             // 只在特定阶段处理眨眼
-            if (
-                !["switching", "bonusWindow", "throwPrompt"].includes(
-                    gameState.current.phase
-                )
-            ) {
+            if (!["switching", "bonusWindow", "throwPrompt"].includes(gameState.current.phase)) {
                 return;
             }
 
@@ -531,8 +504,7 @@ const DiceSpaceMode = ({
                 if (now - gameState.current.lastBlinkTime < 300) return;
                 gameState.current.lastBlinkTime = now;
 
-                const expectedDirection =
-                    config.switchSequence[currentDice.current];
+                const expectedDirection = config.switchSequence[currentDice.current];
                 if (expectedDirection === "left") {
                     handleCorrectSwitch();
                 } else {
@@ -546,11 +518,7 @@ const DiceSpaceMode = ({
     const handleRightBlink = useCallback(
         (data) => {
             // 只在特定阶段处理眨眼
-            if (
-                !["switching", "bonusWindow", "throwPrompt"].includes(
-                    gameState.current.phase
-                )
-            ) {
+            if (!["switching", "bonusWindow", "throwPrompt"].includes(gameState.current.phase)) {
                 return;
             }
 
@@ -565,8 +533,7 @@ const DiceSpaceMode = ({
                 if (now - gameState.current.lastBlinkTime < 300) return;
                 gameState.current.lastBlinkTime = now;
 
-                const expectedDirection =
-                    config.switchSequence[currentDice.current];
+                const expectedDirection = config.switchSequence[currentDice.current];
                 if (expectedDirection === "right") {
                     handleCorrectSwitch();
                 } else {
@@ -588,10 +555,7 @@ const DiceSpaceMode = ({
                         gameState.current.closeEyeStart = Date.now();
                     }
                     startRolling();
-                } else if (
-                    data.status === "open" &&
-                    gameState.current.closeEyeStart !== 0
-                ) {
+                } else if (data.status === "open" && gameState.current.closeEyeStart !== 0) {
                     stopRolling();
                 }
             }
@@ -618,21 +582,10 @@ const DiceSpaceMode = ({
             stopAllSounds();
             window.speechSynthesis.cancel();
         };
-    }, [
-        handleBlinkEvent,
-        handleEyeState,
-        handleLeftBlink,
-        handleRightBlink,
-        speak,
-        stopAllSounds,
-    ]);
+    }, [handleBlinkEvent, handleEyeState, handleLeftBlink, handleRightBlink, speak, stopAllSounds]);
 
     useEffect(() => {
-        if (
-            shouldEnd &&
-            gameState.current.phase !== "success" &&
-            gameState.current.phase !== "fail"
-        ) {
+        if (shouldEnd && gameState.current.phase !== "success" && gameState.current.phase !== "fail") {
             if (totalPointsRef.current >= config.minPoints) {
                 endGame(true);
             } else {
@@ -655,11 +608,7 @@ const DiceSpaceMode = ({
             case "bonusWindow":
                 return `Blink quickly to increase points! (${bonusBlinks} blinks)`;
             case "switching":
-                return `Please ${
-                    config.switchSequence[currentDice.current] === "left"
-                        ? "left"
-                        : "right"
-                } eye blink to switch to the next die`;
+                return `Please ${config.switchSequence[currentDice.current] === "left" ? "left" : "right"} eye blink to switch to the next dice`;
             case "end":
                 return "All dice have been thrown";
             case "success":
@@ -695,14 +644,8 @@ const DiceSpaceMode = ({
                             fontWeight: "bold",
                             fontSize: "1.2rem",
                             color: "#333",
-                            border:
-                                currentDice.current === index
-                                    ? "3px solid gold"
-                                    : "2px solid #ccc",
-                            boxShadow:
-                                currentDice.current === index
-                                    ? "0 0 10px gold"
-                                    : "none",
+                            border: currentDice.current === index ? "3px solid gold" : "2px solid #ccc",
+                            boxShadow: currentDice.current === index ? "0 0 10px gold" : "none",
                         }}>
                         {point || "?"}
                     </div>
@@ -727,18 +670,16 @@ const DiceSpaceMode = ({
                 color: "white",
                 textAlign: "center",
             }}>
+            {/* 游戏标题 */}
+            <h1 style={{ marginBottom: "-0.5rem" }}>Dice</h1>
+            <p style={{ color: "rgb(255,255,255,0.7)" }}>
+                Roll the dice according to the voice instructions and try to get the highest score possible!
+                <br />
+                After the dice is rolled, blink as many times as you can to increase your score!
+            </p>
             {/* 等待开始界面（眨双眼两次） */}
             {gamePhase === "intro" && (
                 <div>
-                    {/* 游戏标题 */}
-                    <h1 style={{ marginBottom: "-0.5rem" }}>Dice</h1>
-                    <p style={{ color: "rgb(255,255,255,0.7)" }}>
-                        Roll the dice according to the voice instructions and
-                        try to get the highest score possible!
-                        <br />
-                        After the dice is rolled, blink as many times as you can
-                        to increase your score!
-                    </p>
                     <p>
                         Close both eyes: Roll the dice
                         <br />
@@ -750,7 +691,7 @@ const DiceSpaceMode = ({
                     </p>
                     <p
                         style={{
-                            marginTop: "2rem",
+                            marginTop: "1rem",
                             fontSize: "1rem",
                             color: "pink",
                         }}>
@@ -760,41 +701,34 @@ const DiceSpaceMode = ({
                 </div>
             )}
 
-            {gamePhase !== "intro" &&
-                gamePhase !== "success" &&
-                gamePhase !== "fail" && (
-                    <>
-                        <h1>{remainingTime}秒</h1>
-                        <h2>
-                            Total points: {totalPoints} / {config.minPoints}
-                        </h2>
+            {gamePhase !== "intro" && gamePhase !== "success" && gamePhase !== "fail" && (
+                <>
+                    <h1 style={{ margin: "0", padding: "0" }}>{remainingTime}s</h1>
+                    <h2>
+                        Total points: {totalPoints} / {config.minPoints}
+                    </h2>
 
-                        {renderDicePoints()}
+                    {renderDicePoints()}
 
-                        <p>
-                            Close both eyes: Roll the dice
-                            <br />
-                            Open both eyes: Stop rolling the dice
-                            <br />
-                            Blink multiple times after rolling: Gain scores
-                            <br />
-                            Blink left / blink right: Move to the next dice
-                        </p>
-                        <p
-                            style={{
-                                marginTop: "1rem",
-                                fontSize: "1rem",
-                                color: "#ffcc00",
-                                fontWeight: "bold",
-                                backgroundColor: "rgba(0,0,0,0.3)",
-                                padding: "8px 16px",
-                                borderRadius: "20px",
-                                maxWidth: "80%",
-                            }}>
-                            {renderGameStateText()}
-                        </p>
-                    </>
-                )}
+                    <p>
+                        Close both eyes: Roll the dice
+                        <br />
+                        Open both eyes: Stop rolling the dice
+                        <br />
+                        Blink multiple times after rolling: Gain scores
+                        <br />
+                        Blink left / blink right: Move to the next dice
+                    </p>
+                    <p
+                        style={{
+                            marginTop: "1rem",
+                            fontSize: "1rem",
+                            color: "pink",
+                        }}>
+                        {renderGameStateText()}
+                    </p>
+                </>
+            )}
 
             {(gamePhase === "success" || gamePhase === "fail") && (
                 <div
@@ -806,8 +740,7 @@ const DiceSpaceMode = ({
                     }}>
                     <h2
                         style={{
-                            color:
-                                gamePhase === "success" ? "#4caf50" : "#f44336",
+                            color: gamePhase === "success" ? "#4caf50" : "#f44336",
                         }}>
                         {gamePhase === "success"
                             ? "Congratulations! You have successfully escaped the Dice Space!"
@@ -823,51 +756,15 @@ const DiceSpaceMode = ({
 
             {/* 隐藏的音效元素 */}
             <div style={{ display: "none" }}>
-                <audio
-                    ref={(el) => (audioRefs.current.bg = el)}
-                    src={bgSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.roll = el)}
-                    src={rollSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.ready = el)}
-                    src={readySound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.switch = el)}
-                    src={switchSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.wrong = el)}
-                    src={wrongSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.timer = el)}
-                    src={timerSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.levelUp = el)}
-                    src={levelUpSound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.victory = el)}
-                    src={victorySound}
-                    preload="auto"
-                />
-                <audio
-                    ref={(el) => (audioRefs.current.fail = el)}
-                    src={failSound}
-                    preload="auto"
-                />
+                <audio ref={(el) => (audioRefs.current.bg = el)} src={bgSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.roll = el)} src={rollSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.ready = el)} src={readySound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.switch = el)} src={switchSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.wrong = el)} src={wrongSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.timer = el)} src={timerSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.levelUp = el)} src={levelUpSound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.victory = el)} src={victorySound} preload="auto" />
+                <audio ref={(el) => (audioRefs.current.fail = el)} src={failSound} preload="auto" />
             </div>
         </div>
     );
